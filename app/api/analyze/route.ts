@@ -50,7 +50,7 @@ Return exactly:
     async () => {
       const anthropic = getAnthropic();
       const res = await anthropic.messages.create({
-        model: "claude-haiku-4-5", max_tokens: 800,
+        model: "claude-haiku-4-5-20251001", max_tokens: 800,
         messages: [{ role: "user", content: prompt }],
       });
       return res.content.map((b: {type:string;text?:string}) => b.type === "text" ? b.text : "").join("");
@@ -70,7 +70,7 @@ Include 4-5 real competitors.`;
     async () => {
       const anthropic = getAnthropic();
       const res = await anthropic.messages.create({
-        model: "claude-haiku-4-5", max_tokens: 1000,
+        model: "claude-haiku-4-5-20251001", max_tokens: 1000,
         messages: [{ role: "user", content: prompt }],
       });
       return res.content.map((b: {type:string;text?:string}) => b.type === "text" ? b.text : "").join("");
@@ -105,7 +105,7 @@ Include 3-4 business models.`;
     async () => {
       const anthropic = getAnthropic();
       const res = await anthropic.messages.create({
-        model: "claude-haiku-4-5", max_tokens: 1200,
+        model: "claude-haiku-4-5-20251001", max_tokens: 1200,
         messages: [{ role: "user", content: prompt }],
       });
       return res.content.map((b: {type:string;text?:string}) => b.type === "text" ? b.text : "").join("");
@@ -150,7 +150,7 @@ Include 4-5 risks. Be realistic.`;
     async () => {
       const anthropic = getAnthropic();
       const res = await anthropic.messages.create({
-        model: "claude-haiku-4-5", max_tokens: 900,
+        model: "claude-haiku-4-5-20251001", max_tokens: 900,
         messages: [{ role: "user", content: prompt }],
       });
       return res.content.map((b: {type:string;text?:string}) => b.type === "text" ? b.text : "").join("");
@@ -176,7 +176,7 @@ Return this exact schema:
     async () => {
       const anthropic = getAnthropic();
       const res = await anthropic.messages.create({
-        model: "claude-haiku-4-5", max_tokens: 3000,
+        model: "claude-haiku-4-5-20251001", max_tokens: 3000,
         messages: [{ role: "user", content: prompt }],
       });
       return res.content.map((b: {type:string;text?:string}) => b.type === "text" ? b.text : "").join("");
