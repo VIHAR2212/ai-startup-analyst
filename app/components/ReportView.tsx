@@ -28,7 +28,7 @@ interface Report {
   agentsUsed?: string[];
 }
 
-interface Props { report: Report; idea: string; capital: string; }
+interface Props { report: Report; idea: string; capital: string; country: string; market: string; }
 
 const verdictConfig = {
   invest: { label: "Strong Invest", bg: "#4ade8015", border: "#4ade8040", text: "#4ade80", title: "Strong Investment Candidate" },
@@ -150,7 +150,7 @@ ${report.bootstrap ? `
 </body></html>`;
 }
 
-export default function ReportView({ report, idea, capital }: Props) {
+export default function ReportView({ report, idea, capital, country, market }: Props) {
   const vc = verdictConfig[report.verdict] || verdictConfig.watch;
   const reportHTML = buildReportHTML(report, idea, capital);
 
