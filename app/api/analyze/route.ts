@@ -36,7 +36,7 @@ async function callGroq(prompt: string, maxTokens = 1200): Promise<string> {
 
 async function callGemini(prompt: string): Promise<string> {
   const geminiClient = getGemini();
-  const model = geminiClient.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = geminiClient.getGenerativeModel({ model: "gemini-2.0-flash" });
   const result = await model.generateContent(prompt);
   return result.response.text();
 }
