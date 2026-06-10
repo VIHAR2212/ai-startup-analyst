@@ -191,7 +191,7 @@ export default function ReportView({ report, idea, capital, country, market }: P
       {/* Market Research */}
       <SectionCard icon="📈" title="Market Research">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10, marginBottom: 14 }}>
-          {[["TAM", report.marketResearch?.tam, "Total addressable"],["SAM", report.marketResearch?.sam, "Serviceable"],["SOM", report.marketResearch?.som, "Obtainable"],["CAGR", report.marketResearch?.cagr, "Growth rate"]].map(([l,v,s])=>(
+          {[["TAM", report.marketResearch?.tam, "Total Addressable Market"],["SAM", report.marketResearch?.sam, "Serviceable Addressable Market"],["SOM", report.marketResearch?.som, "Serviceable Obtainable Market"],["CAGR", report.marketResearch?.cagr, "Compound Annual Growth Rate"]].map(([l,v,s])=>(
             <div key={l} style={{ background: "var(--surface-2)", borderRadius: 8, padding: "12px 14px", border: "0.5px solid var(--border)" }}>
               <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{l}</div>
               <div style={{ fontSize: 17, fontWeight: 600 }}>{v}</div>
@@ -200,23 +200,57 @@ export default function ReportView({ report, idea, capital, country, market }: P
           ))}
         </div>
         <p style={{ fontSize: 13, lineHeight: 1.7, marginBottom: 12 }}>{report.marketResearch?.summary}</p>
+
+        {/* Target demographic + Cultural insight */}
+        {((report.marketResearch as any)?.targetDemographic || (report.marketResearch as any)?.culturalInsight) && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+            {(report.marketResearch as any)?.targetDemographic && (
+              <div style={{ padding: "11px 14px", background: "#4ade8010", borderRadius: 10, border: "0.5px solid #4ade8030" }}>
+                <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 600, marginBottom: 5 }}>🎯 TARGET DEMOGRAPHIC</div>
+                <p style={{ fontSize: 12, margin: 0, lineHeight: 1.5 }}>{(report.marketResearch as any).targetDemographic}</p>
+              </div>
+            )}
+            {(report.marketResearch as any)?.culturalInsight && (
+              <div style={{ padding: "11px 14px", background: "#f59e0b10", borderRadius: 10, border: "0.5px solid #f59e0b30" }}>
+                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, marginBottom: 5 }}>🧠 CULTURAL INSIGHT</div>
+                <p style={{ fontSize: 12, margin: 0, lineHeight: 1.5 }}>{(report.marketResearch as any).culturalInsight}</p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>KEY TRENDS</div>
         {report.marketResearch?.keyTrends?.map((t,i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, marginBottom: 6 }}>
             <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#4ade8015", color: "#4ade80", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, flexShrink: 0 }}>{i+1}</span>{t}
           </div>
         ))}
+
+        {report.marketResearch?.demandSignals && (
+          <div style={{ marginTop: 12, padding: "11px 14px", background: "var(--surface-2)", borderRadius: 10, border: "0.5px solid var(--border)" }}>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 5 }}>📡 DEMAND SIGNALS</div>
+            <p style={{ fontSize: 12, margin: 0, lineHeight: 1.5 }}>{report.marketResearch.demandSignals}</p>
+          </div>
+        )}
       </SectionCard>
 
       {/* Score Breakdown */}
       <SectionCard icon="📊" title="Score breakdown">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
-          {Object.entries(report.scores || {}).map(([k, v]) => {
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
+          {[
+            ["market",     "Market Potential",  "Size & growth opportunity"],
+            ["team",       "Team Strength",      "Founder capability & experience"],
+            ["product",    "Product Viability",  "Solution–market fit"],
+            ["traction",   "Traction",           "Early signals & momentum"],
+            ["financials", "Financials",         "Revenue model & unit economics"],
+          ].map(([key, label, desc]) => {
+            const v = Number((report.scores || {})[key] ?? 0);
             const color = v >= 70 ? "#4ade80" : v >= 45 ? "#f59e0b" : "#ef4444";
             return (
-              <div key={k} style={{ background: "var(--surface-2)", borderRadius: 8, padding: "12px 14px", border: "0.5px solid var(--border)" }}>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{k.toUpperCase()}</div>
-                <div style={{ fontSize: 22, fontWeight: 600, color }}>{v}</div>
+              <div key={key} style={{ background: "var(--surface-2)", borderRadius: 8, padding: "12px 14px", border: "0.5px solid var(--border)" }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6, opacity: 0.7 }}>{desc}</div>
+                <div style={{ fontSize: 26, fontWeight: 600, color }}>{v}</div>
                 <div style={{ marginTop: 6, height: 3, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
                   <div style={{ width: `${v}%`, height: "100%", background: color, borderRadius: 2 }} />
                 </div>
@@ -226,7 +260,7 @@ export default function ReportView({ report, idea, capital, country, market }: P
         </div>
       </SectionCard>
 
-      {/* Bootstrap Advisor — NEW */}
+      {/* Bootstrap Advisor */}
       {report.bootstrap && (
         <SectionCard icon="💡" title="How to start — Bootstrap guide">
           <BootstrapAdvisor data={report.bootstrap} capital={capital || "Not specified"} />
@@ -305,6 +339,39 @@ export default function ReportView({ report, idea, capital, country, market }: P
             <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>COMPETITIVE MOAT</div>
             <p style={{ fontSize: 13, margin: 0 }}>{report.moat}</p>
           </div>
+        </div>
+      </SectionCard>
+
+      {/* Solutions & Recommendations — built from risks + weaknesses */}
+      <SectionCard icon="🔧" title="Solutions & recommendations">
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {report.risks?.slice(0,4).map((risk, i) => (
+            <div key={i} style={{ padding: "12px 14px", background: "var(--surface-2)", borderRadius: 10, border: "0.5px solid var(--border)", display: "flex", gap: 12 }}>
+              <div style={{ fontSize: 18, flexShrink: 0, marginTop: 2 }}>
+                {risk.severity === "high" ? "🔴" : risk.severity === "medium" ? "🟡" : "🟢"}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>Problem: {risk.name}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>{risk.description}</div>
+                <div style={{ fontSize: 12, padding: "6px 10px", background: "#4ade8010", borderRadius: 7, border: "0.5px solid #4ade8030", color: "var(--foreground)" }}>
+                  <span style={{ color: "#4ade80", fontWeight: 500 }}>✓ Solution: </span>
+                  {risk.severity === "high"
+                    ? `Prioritize solving this before launch. Consider partnerships, legal consultation, or pivoting the approach to mitigate "${risk.name}" risk directly.`
+                    : risk.severity === "medium"
+                    ? `Monitor closely. Build a contingency plan and address "${risk.name}" within the first 3 months of operation.`
+                    : `Low priority. Document and review quarterly. "${risk.name}" can be addressed in later growth stages.`
+                  }
+                </div>
+              </div>
+            </div>
+          ))}
+          {/* Cultural/local opportunities */}
+          {((report as any).culturalOpportunities || (report as any).localAdvantages) && (
+            <div style={{ padding: "12px 14px", background: "#60a5fa10", borderRadius: 10, border: "0.5px solid #60a5fa30" }}>
+              <div style={{ fontSize: 12, color: "#60a5fa", fontWeight: 600, marginBottom: 6 }}>🌍 LOCAL OPPORTUNITY</div>
+              <p style={{ fontSize: 13, margin: 0, lineHeight: 1.6 }}>{(report as any).culturalOpportunities || (report as any).localAdvantages}</p>
+            </div>
+          )}
         </div>
       </SectionCard>
 
