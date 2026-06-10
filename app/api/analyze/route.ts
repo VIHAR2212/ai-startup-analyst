@@ -223,6 +223,39 @@ Schema:
   ], "Synthesizer");
 }
 
+function normalizeScore(val: unknown): number {
+  const n = Number(val);
+  if (isNaN(n) || n === 0) return 0;
+  if (n > 0 && n <= 10) return Math.round(n * 10); // 7.5 → 75
+  return Math.round(Math.min(Math.max(n, 0), 100));
+}
+
+function normalizeReport(report: Record<string, unknown>, scoreParsed: Record<string, unknown>): Record<string, unknown> {
+  const rawScore = report.overallScore ?? scoreParsed.overallScore ?? 50;
+  report.overallScore = normalizeScore(rawScore);
+
+  const scores = (report.scores as Record<string, unknown>) || {};
+  const allZero = Object.values(scores).every(v => Number(v) === 0);
+  const src = allZero ? ((scoreParsed.scores as Record<string, unknown>) || {}) : scores;
+
+  report.scores = {
+    market:     normalizeScore(src.market     ?? 50),
+    team:       normalizeScore(src.team       ?? 50),
+    product:    normalizeScore(src.product    ?? 50),
+    traction:   normalizeScore(src.traction   ?? 50),
+    financials: normalizeScore(src.financials ?? 50),
+  };
+
+  if (!report.verdict) {
+    const s = report.overallScore as number;
+    report.verdict = s >= 70 ? "invest" : s >= 45 ? "watch" : "pass";
+  }
+  if (!report.investmentSummary && scoreParsed.investmentSummary)
+    report.investmentSummary = scoreParsed.investmentSummary;
+
+  return report;
+}
+
 function parseJSON(raw: string): Record<string, unknown> {
   const clean = raw.replace(/```json|```/g,"").trim();
   const match = clean.match(/\{[\s\S]*\}/);
@@ -266,7 +299,8 @@ export async function POST(req: NextRequest) {
       strategy: strategyRaw, scoring: scoringRaw, bootstrap: bootstrapRaw,
     });
 
-    const report = parseJSON(finalRaw);
+    let report = parseJSON(finalRaw);
+    report = normalizeReport(report, scoreParsed);
 
     if (process.env.N8N_WEBHOOK_URL) {
       fetch(process.env.N8N_WEBHOOK_URL, {
