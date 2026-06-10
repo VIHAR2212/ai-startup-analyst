@@ -1,3 +1,4 @@
+"use client";
 import { useState } from "react";
 import AgentPanel from "./components/AgentPanel";
 import ReportView from "./components/ReportView";
