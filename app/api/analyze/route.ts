@@ -13,169 +13,220 @@ function getGroq() {
   return new Groq.default({ apiKey: process.env.GROQ_API_KEY || "placeholder" });
 }
 
-async function callClaude(prompt: string, maxTokens = 1200): Promise<string> {
-  const anthropic = getAnthropic();
-  const res = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: maxTokens,
-    messages: [{ role: "user", content: prompt }],
-  });
-  return res.content.map((b: {type:string;text?:string}) => b.type === "text" ? b.text : "").join("");
-}
-
-async function callGroq(prompt: string, maxTokens = 1200): Promise<string> {
-  const groq = getGroq();
-  const res = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    messages: [{ role: "user", content: prompt }],
-    max_tokens: maxTokens,
-    temperature: 0.4,
-  });
-  return res.choices[0]?.message?.content || "";
-}
-
-async function callGemini(prompt: string): Promise<string> {
-  const geminiClient = getGemini();
-  const model = geminiClient.getGenerativeModel({ model: "gemini-2.0-flash" });
-  const result = await model.generateContent(prompt);
-  return result.response.text();
-}
-
-async function callWithFallback(
-  fns: Array<() => Promise<string>>,
-  agentName: string
-): Promise<string> {
-  const errors: string[] = [];
+async function callWithFallback(fns: Array<() => Promise<string>>, agentName: string): Promise<string> {
   for (const fn of fns) {
     try {
       const result = await fn();
       if (result?.trim()) return result;
     } catch (e) {
-      errors.push((e as Error).message?.slice(0, 100));
-      console.warn(`[${agentName}] provider failed:`, (e as Error).message?.slice(0, 100));
+      console.warn(`[${agentName}] failed:`, (e as Error).message);
     }
   }
-  throw new Error(`All providers failed for ${agentName}. Errors: ${errors.join(" | ")}`);
+  throw new Error(`All providers failed for ${agentName}`);
 }
 
-function extractJSON(raw: string): string {
-  const clean = raw.replace(/```json|```/g, "").trim();
-  const match = clean.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("No JSON object found in response");
-  return match[0];
-}
-
-// Agent 1: Market Research — Groq → Claude
-async function marketResearchAgent(idea: string): Promise<string> {
-  const prompt = `You are a senior market research analyst. Analyze this startup idea. Return ONLY a JSON object, no markdown, no explanation:
-Idea: "${idea}"
-Schema: {"summary":string,"tam":string,"sam":string,"som":string,"cagr":string,"keyTrends":[string,string,string],"demandSignals":string}`;
-
+async function marketResearchAgent(idea: string, capital: string): Promise<string> {
+  const prompt = `You are a senior market research analyst. Analyze this startup idea and return ONLY a JSON object (no markdown):
+Startup idea: "${idea}"
+Available capital: "${capital}"
+Return exactly:
+{"summary":string,"tam":string,"sam":string,"som":string,"cagr":string,"keyTrends":[string,string,string],"demandSignals":string}`;
   return callWithFallback([
-    () => callGroq(prompt, 800),
-    () => callClaude(prompt, 800),
+    async () => {
+      const groq = getGroq();
+      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:800, temperature:0.4 });
+      return res.choices[0]?.message?.content || "";
+    },
+    async () => {
+      const a = getAnthropic();
+      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:800, messages:[{role:"user",content:prompt}] });
+      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
+    },
   ], "MarketResearch");
 }
 
-// Agent 2: Competitor Analysis — Claude → Groq
 async function competitorAnalysisAgent(idea: string): Promise<string> {
-  const prompt = `You are a competitive intelligence expert. Analyze competitors for this startup. Return ONLY a JSON object, no markdown:
-Idea: "${idea}"
-Schema: {"competitors":[{"name":string,"type":"direct"|"indirect","strength":string,"weakness":string,"threat":"high"|"medium"|"low"}],"competitorSummary":string}
-Include exactly 4 competitors.`;
-
+  const prompt = `You are a competitive intelligence expert. Return ONLY a JSON object (no markdown):
+Startup idea: "${idea}"
+Return exactly:
+{"competitors":[{"name":string,"type":"direct"|"indirect","strength":string,"weakness":string,"threat":"high"|"medium"|"low"}],"competitorSummary":string}
+Include 4-5 real competitors.`;
   return callWithFallback([
-    () => callClaude(prompt, 1000),
-    () => callGroq(prompt, 1000),
+    async () => {
+      const a = getAnthropic();
+      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:1000, messages:[{role:"user",content:prompt}] });
+      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
+    },
+    async () => {
+      const groq = getGroq();
+      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:1000, temperature:0.3 });
+      return res.choices[0]?.message?.content || "";
+    },
   ], "CompetitorAnalysis");
 }
 
-// Agent 3: Business Strategy — Claude primary, Gemini secondary, Groq tertiary
-async function businessStrategyAgent(idea: string): Promise<string> {
-  const prompt = `You are a startup business strategist. Return ONLY a JSON object, no markdown, no explanation:
-Idea: "${idea}"
-Schema: {"swot":{"strengths":[string,string,string],"weaknesses":[string,string,string],"opportunities":[string,string,string],"threats":[string,string,string]},"businessModels":[{"name":string,"description":string,"potential":"high"|"medium"}],"growthStrategy":string,"moat":string}
-Include exactly 3 business models.`;
-
+async function businessStrategyAgent(idea: string, capital: string): Promise<string> {
+  const prompt = `You are a startup business strategist. Return ONLY a JSON object (no markdown):
+Startup idea: "${idea}"
+Available capital: "${capital}"
+Return exactly:
+{"swot":{"strengths":[string,string,string],"weaknesses":[string,string,string],"opportunities":[string,string,string],"threats":[string,string,string]},"businessModels":[{"name":string,"description":string,"potential":"high"|"medium"}],"growthStrategy":string,"moat":string}
+Include 3-4 business models relevant to the available capital.`;
   return callWithFallback([
-    () => callClaude(prompt, 1200),
-    () => callGemini(prompt),
-    () => callGroq(prompt, 1200),
+    async () => {
+      const groq = getGroq();
+      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:1200, temperature:0.5 });
+      return res.choices[0]?.message?.content || "";
+    },
+    async () => {
+      const geminiClient = getGemini();
+      const model = geminiClient.getGenerativeModel({ model:"gemini-2.0-flash" });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    },
+    async () => {
+      const a = getAnthropic();
+      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:1200, messages:[{role:"user",content:prompt}] });
+      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
+    },
   ], "BusinessStrategy");
 }
 
-// Agent 4: Scoring — Groq → Claude → Gemini
-async function scoringAgent(idea: string, ctx: string): Promise<string> {
-  const prompt = `You are a VC analyst scoring a startup. Return ONLY a JSON object, no markdown:
-Idea: "${idea}"
-Context: ${ctx.slice(0, 600)}
-Schema: {"overallScore":number,"verdict":"invest"|"watch"|"pass","investmentSummary":string,"risks":[{"name":string,"description":string,"severity":"high"|"medium"|"low"}],"scores":{"market":number,"team":number,"product":number,"traction":number,"financials":number}}
-Include exactly 4 risks. All scores 0-100.`;
-
+async function scoringAgent(idea: string, capital: string, ctx: string): Promise<string> {
+  const prompt = `You are a VC analyst. Return ONLY a JSON object (no markdown):
+Idea: "${idea}", Capital: "${capital}"
+Context: ${ctx.slice(0,800)}
+Return exactly:
+{"overallScore":number,"verdict":"invest"|"watch"|"pass","investmentSummary":string,"risks":[{"name":string,"description":string,"severity":"high"|"medium"|"low"}],"scores":{"market":number,"team":number,"product":number,"traction":number,"financials":number}}
+Include 4-5 risks.`;
   return callWithFallback([
-    () => callGroq(prompt, 900),
-    () => callClaude(prompt, 900),
-    () => callGemini(prompt),
+    async () => {
+      const groq = getGroq();
+      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:900, temperature:0.3 });
+      return res.choices[0]?.message?.content || "";
+    },
+    async () => {
+      const geminiClient = getGemini();
+      const model = geminiClient.getGenerativeModel({ model:"gemini-2.0-flash" });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    },
+    async () => {
+      const a = getAnthropic();
+      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:900, messages:[{role:"user",content:prompt}] });
+      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
+    },
   ], "Scoring");
 }
 
-// Agent 5: Synthesizer — Claude → Groq
-async function synthesizerAgent(idea: string, parts: {
-  market: string; competitors: string; strategy: string; scoring: string;
-}): Promise<string> {
-  const prompt = `You are a senior VC partner. Combine this research into one final report. Return ONLY valid JSON, no markdown, no explanation:
+async function bootstrapAdvisorAgent(idea: string, capital: string, score: number): Promise<string> {
+  const prompt = `You are a startup advisor specializing in bootstrapping and lean startups. A founder wants to start this business:
 Idea: "${idea}"
-MARKET DATA: ${parts.market.slice(0, 500)}
-COMPETITOR DATA: ${parts.competitors.slice(0, 500)}
-STRATEGY DATA: ${parts.strategy.slice(0, 500)}
-SCORING DATA: ${parts.scoring.slice(0, 500)}
+Available capital: "${capital}"
+Viability score: ${score}/100
 
-Return this exact schema:
-{"startupName":string,"tagline":string,"industry":string,"stage":"idea"|"mvp"|"early"|"growth","overallScore":number,"verdict":"invest"|"watch"|"pass","investmentSummary":string,"marketResearch":{"summary":string,"tam":string,"sam":string,"som":string,"cagr":string,"keyTrends":[string,string,string],"demandSignals":string},"competitors":[{"name":string,"type":"direct"|"indirect","strength":string,"weakness":string,"threat":"high"|"medium"|"low"}],"competitorSummary":string,"swot":{"strengths":[string,string,string],"weaknesses":[string,string,string],"opportunities":[string,string,string],"threats":[string,string,string]},"risks":[{"name":string,"description":string,"severity":"high"|"medium"|"low"}],"businessModels":[{"name":string,"description":string,"potential":"high"|"medium"}],"growthStrategy":string,"moat":string,"scores":{"market":number,"team":number,"product":number,"traction":number,"financials":number},"agentsUsed":["Groq/Llama3.3","Claude/Haiku","Claude/Haiku","Groq/Llama3.3","Claude/Haiku"]}`;
+Give practical, actionable advice tailored to their financial situation. Return ONLY a JSON object (no markdown):
+{
+  "capitalTier": "low"|"medium"|"high",
+  "capitalAssessment": string (1-2 sentences on whether capital is sufficient),
+  "howToStart": [
+    {"step": number, "title": string, "description": string, "cost": string, "timeline": string}
+  ],
+  "minimumViableSetup": string (what is the absolute minimum to launch),
+  "firstMonthGoal": string,
+  "bootstrapTips": [string, string, string],
+  "fundingOptions": [{"name": string, "description": string, "amount": string}],
+  "warningIfLowCapital": string or null
+}
+Include 5-6 steps in howToStart. Be very specific about costs in Indian Rupees (₹) if capital suggests India context.`;
 
   return callWithFallback([
-    () => callClaude(prompt, 3000),
-    () => callGroq(prompt, 3000),
+    async () => {
+      const a = getAnthropic();
+      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:1500, messages:[{role:"user",content:prompt}] });
+      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
+    },
+    async () => {
+      const groq = getGroq();
+      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:1500, temperature:0.4 });
+      return res.choices[0]?.message?.content || "";
+    },
+  ], "BootstrapAdvisor");
+}
+
+async function synthesizerAgent(idea: string, capital: string, parts: {
+  market: string; competitors: string; strategy: string; scoring: string; bootstrap: string;
+}): Promise<string> {
+  const prompt = `Synthesize multi-agent research into ONE final JSON report. Return ONLY valid JSON (no markdown):
+Idea: "${idea}", Capital: "${capital}"
+MARKET: ${parts.market.slice(0,500)}
+COMPETITORS: ${parts.competitors.slice(0,500)}
+STRATEGY: ${parts.strategy.slice(0,500)}
+SCORING: ${parts.scoring.slice(0,500)}
+BOOTSTRAP: ${parts.bootstrap.slice(0,500)}
+
+Return this exact schema:
+{"startupName":string,"tagline":string,"industry":string,"stage":"idea"|"mvp"|"early"|"growth","capitalRequired":string,"overallScore":number,"verdict":"invest"|"watch"|"pass","investmentSummary":string,"marketResearch":{"summary":string,"tam":string,"sam":string,"som":string,"cagr":string,"keyTrends":[string,string,string],"demandSignals":string},"competitors":[{"name":string,"type":"direct"|"indirect","strength":string,"weakness":string,"threat":"high"|"medium"|"low"}],"competitorSummary":string,"swot":{"strengths":[string,string,string],"weaknesses":[string,string,string],"opportunities":[string,string,string],"threats":[string,string,string]},"risks":[{"name":string,"description":string,"severity":"high"|"medium"|"low"}],"businessModels":[{"name":string,"description":string,"potential":"high"|"medium"}],"growthStrategy":string,"moat":string,"scores":{"market":number,"team":number,"product":number,"traction":number,"financials":number},"bootstrap":{"capitalTier":"low"|"medium"|"high","capitalAssessment":string,"howToStart":[{"step":number,"title":string,"description":string,"cost":string,"timeline":string}],"minimumViableSetup":string,"firstMonthGoal":string,"bootstrapTips":[string,string,string],"fundingOptions":[{"name":string,"description":string,"amount":string}],"warningIfLowCapital":string|null},"agentsUsed":["Groq/Llama3.3","Claude/Haiku","Groq/Llama3.3","Groq/Llama3.3","Claude/Haiku","Claude/Haiku"]}`;
+
+  return callWithFallback([
+    async () => {
+      const a = getAnthropic();
+      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:4000, messages:[{role:"user",content:prompt}] });
+      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
+    },
+    async () => {
+      const groq = getGroq();
+      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:4000, temperature:0.2 });
+      return res.choices[0]?.message?.content || "";
+    },
   ], "Synthesizer");
+}
+
+function parseJSON(raw: string): Record<string, unknown> {
+  const clean = raw.replace(/```json|```/g, "").trim();
+  const match = clean.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("No JSON object in response");
+  return JSON.parse(match[0]);
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { idea } = await req.json();
+    const { idea, capital = "Not specified" } = await req.json();
     if (!idea?.trim()) return NextResponse.json({ error: "Idea is required" }, { status: 400 });
 
-    // Agents 1-3 parallel
     const [marketRaw, competitorRaw, strategyRaw] = await Promise.all([
-      marketResearchAgent(idea),
+      marketResearchAgent(idea, capital),
       competitorAnalysisAgent(idea),
-      businessStrategyAgent(idea),
+      businessStrategyAgent(idea, capital),
     ]);
 
-    // Agent 4 uses context from 1-3
-    const scoringRaw = await scoringAgent(idea, marketRaw + " " + strategyRaw);
+    const ctx = `${marketRaw} ${competitorRaw} ${strategyRaw}`;
+    const scoringRaw = await scoringAgent(idea, capital, ctx);
 
-    // Agent 5 synthesizes all
-    const finalRaw = await synthesizerAgent(idea, {
-      market: marketRaw,
-      competitors: competitorRaw,
-      strategy: strategyRaw,
-      scoring: scoringRaw,
+    let scoreParsed: any = {};
+    try { scoreParsed = parseJSON(scoringRaw); } catch {}
+    const score = scoreParsed.overallScore || 50;
+
+    const bootstrapRaw = await bootstrapAdvisorAgent(idea, capital, score);
+
+    const finalRaw = await synthesizerAgent(idea, capital, {
+      market: marketRaw, competitors: competitorRaw,
+      strategy: strategyRaw, scoring: scoringRaw, bootstrap: bootstrapRaw,
     });
 
-    const jsonStr = extractJSON(finalRaw);
-    const report = JSON.parse(jsonStr);
+    const report = parseJSON(finalRaw);
 
     if (process.env.N8N_WEBHOOK_URL) {
       fetch(process.env.N8N_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idea, report, timestamp: new Date().toISOString() }),
+        body: JSON.stringify({ idea, capital, report, timestamp: new Date().toISOString() }),
       }).catch(() => {});
     }
 
     return NextResponse.json({ report });
   } catch (err) {
     console.error("Multi-agent error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Analysis failed", details: String(err) }, { status: 500 });
   }
 }
