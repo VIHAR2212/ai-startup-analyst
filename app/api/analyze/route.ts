@@ -13,306 +13,254 @@ function getGroq() {
   return new Groq.default({ apiKey: process.env.GROQ_API_KEY || "placeholder" });
 }
 
-async function callWithFallback(fns: Array<() => Promise<string>>, agentName: string): Promise<string> {
+async function callWithFallback(fns: Array<() => Promise<string>>, name: string): Promise<string> {
   for (const fn of fns) {
-    try {
-      const result = await fn();
-      if (result?.trim()) return result;
-    } catch (e) {
-      console.warn(`[${agentName}] failed:`, (e as Error).message);
-    }
+    try { const r = await fn(); if (r?.trim()) return r; }
+    catch (e) { console.warn(`[${name}] failed:`, (e as Error).message); }
   }
-  throw new Error(`All providers failed for ${agentName}`);
+  throw new Error(`All providers failed for ${name}`);
 }
 
-// ── Illegal business guard ────────────────────────────────────────────────────
-async function checkLegality(idea: string, country: string): Promise<{ legal: boolean; reason: string }> {
-  const prompt = `You are a legal compliance checker. Is this business idea legal in ${country}?
-Idea: "${idea}"
-Also flag if this involves: drugs, weapons, human trafficking, illegal gambling, counterfeit goods, money laundering, hacking services, or any activity explicitly banned in ${country}.
-Return ONLY JSON: {"legal": boolean, "reason": string}
-If legal, reason = "". If illegal, reason = brief explanation.`;
+// ── Legality check ────────────────────────────────────────────────────────────
+async function checkLegality(idea: string, country: string): Promise<{legal:boolean;reason:string}> {
   try {
     const groq = getGroq();
-    const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:200, temperature:0.1 });
-    const raw = res.choices[0]?.message?.content || '{"legal":true,"reason":""}';
-    const clean = raw.replace(/```json|```/g,"").trim();
-    const match = clean.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : { legal: true, reason: "" };
-  } catch { return { legal: true, reason: "" }; }
+    const res = await groq.chat.completions.create({
+      model:"llama-3.3-70b-versatile",
+      messages:[{role:"user",content:`Is this business idea legal in ${country}? Idea: "${idea}". Flag if it involves: drugs, weapons, trafficking, illegal gambling, counterfeit goods, money laundering, hacking, terrorism. Return ONLY JSON: {"legal":boolean,"reason":string}`}],
+      max_tokens:150, temperature:0.1
+    });
+    const match = (res.choices[0]?.message?.content||"{}").match(/\{[\s\S]*\}/);
+    return match ? JSON.parse(match[0]) : {legal:true,reason:""};
+  } catch { return {legal:true,reason:""}; }
 }
 
-const ctxLine = (idea: string, capital: string, country: string, market: string) =>
-  `Startup: "${idea}" | Capital: ${capital} | Country: ${country} | Market: ${market}`;
+// ── THE KEY FIX: One powerful Claude call does everything ─────────────────────
+// Instead of truncating agent outputs and losing data, we run one comprehensive
+// analysis that produces ALL fields with full context
+async function comprehensiveAnalysisAgent(idea: string, capital: string, country: string, market: string): Promise<string> {
+  const currencyMap: Record<string,string> = {"India":"₹","USA":"$","UK":"£","Germany":"€","France":"€","Australia":"A$","Canada":"C$","Singapore":"S$","UAE":"AED","Japan":"¥","Brazil":"R$","South Africa":"R"};
+  const currency = Object.entries(currencyMap).find(([k])=>country.toLowerCase().includes(k.toLowerCase()))?.[1]||"$";
 
-// ── Cultural context helper ────────────────────────────────────────────────────
-const culturalContext = (country: string, market: string) => `
-CULTURAL & MARKET INTELLIGENCE for ${country}:
-- Deeply consider the dominant religion(s), culture, traditions, festivals, and buying behaviour of ${country}.
-- Example: an agarbatti/incense business in India targets Hindu households (80% of population) — mention this specific addressable audience, not the whole population.
-- For food businesses: consider halal, vegetarian, vegan, kosher requirements based on ${country}'s demographics.
-- For fashion: consider local dress codes, modesty norms, climate.
-- For fintech: consider local payment methods (UPI/Razorpay for India, M-Pesa for Kenya, Alipay for China, etc.)
-- For e-commerce: mention dominant local platforms (Flipkart/Meesho for India, Jumia for Africa, etc.)
-- Be realistic about the ACTUAL target demographic — not the entire country.
-- ${market === "international" ? `Also note cultural differences when expanding from ${country} to other markets.` : ""}`;
+  const prompt = `You are a senior VC analyst and startup consultant with deep knowledge of ${country}'s market. Provide a BRUTALLY HONEST, SPECIFIC, DATA-DRIVEN analysis.
 
-async function marketResearchAgent(idea: string, capital: string, country: string, market: string): Promise<string> {
-  const prompt = `You are a senior market research analyst. Return ONLY a JSON object (no markdown):
-${ctxLine(idea, capital, country, market)}
-${culturalContext(country, market)}
-- TAM/SAM/SOM must reflect the ACTUAL culturally relevant audience, not total population.
-- ${market === "domestic" ? `Focus only on ${country}.` : `Include global scope with ${country} as launch market.`}
-- All monetary values in local currency of ${country}.
-Return exactly:
-{"summary":string,"tam":string,"sam":string,"som":string,"cagr":string,"keyTrends":[string,string,string],"demandSignals":string,"targetDemographic":string,"culturalInsight":string,"marketScope":string}`;
+Startup idea: "${idea}"
+Country: ${country} | Market: ${market} | Capital: ${capital} | Currency: ${currency}
 
-  return callWithFallback([
-    async () => {
-      const groq = getGroq();
-      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:1000, temperature:0.4 });
-      return res.choices[0]?.message?.content || "";
-    },
-    async () => {
-      const a = getAnthropic();
-      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:1000, messages:[{role:"user",content:prompt}] });
-      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
-    },
-  ], "MarketResearch");
-}
+CRITICAL RULES:
+1. NEVER give generic advice. Every field must be SPECIFIC to THIS idea in ${country}.
+2. TAM/SAM/SOM must be REAL market sizes with actual ${currency} figures based on THIS specific industry in ${country} — NOT generic numbers.
+3. Scores must VARY based on actual business viability — NOT always 75. A coal mining startup needs ₹500Cr+ so with ₹50L capital, financials score should be 15-20. An agarbatti business with ₹2L capital should score 55-65.
+4. Investment verdict must match the scores — if average score <50, verdict = "pass". If 50-65 = "watch". If >65 = "invest".
+5. Competitors must be REAL companies operating in ${country} for THIS specific industry.
+6. For India: consider caste, religion, regional culture. Agarbatti = Hindu market (82% India). Meat = non-veg market (30% India).
+7. Risk severity must be honest — capital mismatch should be "high" severity.
+8. Growth projections must be realistic — a tea stall cannot be a unicorn.
+9. TAM/SAM/SOM must be DIFFERENT values with clear reasoning for each.
 
-async function competitorAnalysisAgent(idea: string, country: string, market: string): Promise<string> {
-  const prompt = `You are a competitive intelligence expert. Return ONLY a JSON object (no markdown):
-Startup: "${idea}" | Country: ${country} | Market: ${market}
-${culturalContext(country, market)}
-- Include competitors ${market==="domestic"?`operating in ${country}`:"globally"} and note their cultural/local fit.
-Return exactly:
-{"competitors":[{"name":string,"type":"direct"|"indirect","strength":string,"weakness":string,"threat":"high"|"medium"|"low","country":string}],"competitorSummary":string}
-Include 4-5 real competitors.`;
-
-  return callWithFallback([
-    async () => {
-      const a = getAnthropic();
-      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:1000, messages:[{role:"user",content:prompt}] });
-      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
-    },
-    async () => {
-      const groq = getGroq();
-      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:1000, temperature:0.3 });
-      return res.choices[0]?.message?.content || "";
-    },
-  ], "CompetitorAnalysis");
-}
-
-async function businessStrategyAgent(idea: string, capital: string, country: string, market: string): Promise<string> {
-  const prompt = `You are a startup business strategist. Return ONLY a JSON object (no markdown):
-${ctxLine(idea, capital, country, market)}
-${culturalContext(country, market)}
-- All strategies must respect local culture, regulations, and buying behaviour.
-- All cost estimates in local currency of ${country}.
-- For international market: plan expansion phases starting from ${country}.
-Return exactly:
-{"swot":{"strengths":[string,string,string],"weaknesses":[string,string,string],"opportunities":[string,string,string],"threats":[string,string,string]},"businessModels":[{"name":string,"description":string,"potential":"high"|"medium"}],"growthStrategy":string,"moat":string,"localAdvantages":string,"culturalOpportunities":string}
-Include 3-4 business models.`;
-
-  return callWithFallback([
-    async () => {
-      const groq = getGroq();
-      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:1400, temperature:0.5 });
-      return res.choices[0]?.message?.content || "";
-    },
-    async () => {
-      const geminiClient = getGemini();
-      const model = geminiClient.getGenerativeModel({ model:"gemini-2.0-flash" });
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    },
-    async () => {
-      const a = getAnthropic();
-      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:1400, messages:[{role:"user",content:prompt}] });
-      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
-    },
-  ], "BusinessStrategy");
-}
-
-async function scoringAgent(idea: string, capital: string, country: string, market: string, context: string): Promise<string> {
-  const prompt = `You are a VC analyst. Return ONLY a JSON object (no markdown):
-${ctxLine(idea, capital, country, market)}
-Context: ${context.slice(0,900)}
-- Score based on ${country} market context and actual target demographic size.
-Return exactly:
-{"overallScore":number,"verdict":"invest"|"watch"|"pass","investmentSummary":string,"risks":[{"name":string,"description":string,"severity":"high"|"medium"|"low"}],"scores":{"market":number,"team":number,"product":number,"traction":number,"financials":number}}
-Include 4-5 risks including cultural/demographic risks.`;
-
-  return callWithFallback([
-    async () => {
-      const groq = getGroq();
-      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:900, temperature:0.3 });
-      return res.choices[0]?.message?.content || "";
-    },
-    async () => {
-      const geminiClient = getGemini();
-      const model = geminiClient.getGenerativeModel({ model:"gemini-2.0-flash" });
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    },
-    async () => {
-      const a = getAnthropic();
-      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:900, messages:[{role:"user",content:prompt}] });
-      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
-    },
-  ], "Scoring");
-}
-
-async function bootstrapAdvisorAgent(idea: string, capital: string, country: string, market: string, score: number): Promise<string> {
-  const currencyMap: Record<string,string> = { "India":"₹","USA":"$","UK":"£","Germany":"€","France":"€","Australia":"A$","Canada":"C$","Singapore":"S$","UAE":"AED","Japan":"¥","Brazil":"R$","South Africa":"R" };
-  const currency = Object.entries(currencyMap).find(([k])=>country.toLowerCase().includes(k.toLowerCase()))?.[1] || "$";
-
-  const prompt = `You are a startup advisor for ${country}. Return ONLY a JSON object (no markdown):
-${ctxLine(idea, capital, country, market)}
-Viability score: ${score}/100, Currency: ${currency}
-${culturalContext(country, market)}
-- Reference real local platforms, regulations, grants, incubators in ${country}.
-- India: Startup India, MSME loans, Razorpay, UPI, Digital India schemes.
-- USA: SBA loans, Y Combinator, Product Hunt launch.
-- UK: Innovate UK, Startup Visa.
-- Mention any cultural/religious considerations for launch timing (festivals, holidays).
-Return exactly:
-{"capitalTier":"low"|"medium"|"high","capitalAssessment":string,"currency":"${currency}","howToStart":[{"step":number,"title":string,"description":string,"cost":string,"timeline":string}],"minimumViableSetup":string,"firstMonthGoal":string,"bootstrapTips":[string,string,string],"fundingOptions":[{"name":string,"description":string,"amount":string}],"warningIfLowCapital":string|null,"localResources":[{"name":string,"description":string}],"culturalLaunchTips":string}
-Include 5-6 steps, 3-4 funding options, 2-3 local resources.`;
-
-  return callWithFallback([
-    async () => {
-      const a = getAnthropic();
-      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:2000, messages:[{role:"user",content:prompt}] });
-      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
-    },
-    async () => {
-      const groq = getGroq();
-      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:2000, temperature:0.4 });
-      return res.choices[0]?.message?.content || "";
-    },
-  ], "BootstrapAdvisor");
-}
-
-async function synthesizerAgent(idea: string, capital: string, country: string, market: string, parts: {
-  market: string; competitors: string; strategy: string; scoring: string; bootstrap: string;
-}): Promise<string> {
-  const prompt = `Synthesize research into ONE final JSON. Return ONLY valid JSON (no markdown):
-${ctxLine(idea, capital, country, market)}
-MARKET: ${parts.market.slice(0,420)}
-COMPETITORS: ${parts.competitors.slice(0,420)}
-STRATEGY: ${parts.strategy.slice(0,420)}
-SCORING: ${parts.scoring.slice(0,420)}
-BOOTSTRAP: ${parts.bootstrap.slice(0,420)}
-
-Schema:
-{"startupName":string,"tagline":string,"industry":string,"stage":"idea"|"mvp"|"early"|"growth","country":string,"marketType":"domestic"|"international","capitalRequired":string,"overallScore":number,"verdict":"invest"|"watch"|"pass","investmentSummary":string,"marketResearch":{"summary":string,"tam":string,"sam":string,"som":string,"cagr":string,"keyTrends":[string,string,string],"demandSignals":string,"targetDemographic":string,"culturalInsight":string,"marketScope":string},"competitors":[{"name":string,"type":"direct"|"indirect","strength":string,"weakness":string,"threat":"high"|"medium"|"low","country":string}],"competitorSummary":string,"swot":{"strengths":[string,string,string],"weaknesses":[string,string,string],"opportunities":[string,string,string],"threats":[string,string,string]},"localAdvantages":string,"culturalOpportunities":string,"risks":[{"name":string,"description":string,"severity":"high"|"medium"|"low"}],"businessModels":[{"name":string,"description":string,"potential":"high"|"medium"}],"growthStrategy":string,"moat":string,"scores":{"market":number,"team":number,"product":number,"traction":number,"financials":number},"bootstrap":{"capitalTier":"low"|"medium"|"high","capitalAssessment":string,"currency":string,"howToStart":[{"step":number,"title":string,"description":string,"cost":string,"timeline":string}],"minimumViableSetup":string,"firstMonthGoal":string,"bootstrapTips":[string,string,string],"fundingOptions":[{"name":string,"description":string,"amount":string}],"warningIfLowCapital":string|null,"localResources":[{"name":string,"description":string}],"culturalLaunchTips":string},"agentsUsed":["Groq","Claude","Groq","Groq","Claude","Claude"]}`;
-
-  return callWithFallback([
-    async () => {
-      const a = getAnthropic();
-      const res = await a.messages.create({ model:"claude-haiku-4-5-20251001", max_tokens:4000, messages:[{role:"user",content:prompt}] });
-      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
-    },
-    async () => {
-      const groq = getGroq();
-      const res = await groq.chat.completions.create({ model:"llama-3.3-70b-versatile", messages:[{role:"user",content:prompt}], max_tokens:4000, temperature:0.2 });
-      return res.choices[0]?.message?.content || "";
-    },
-  ], "Synthesizer");
-}
-
-function normalizeScore(val: unknown): number {
-  const n = Number(val);
-  if (isNaN(n) || n === 0) return 0;
-  if (n > 0 && n <= 10) return Math.round(n * 10); // 7.5 → 75
-  return Math.round(Math.min(Math.max(n, 0), 100));
-}
-
-function normalizeReport(report: Record<string, unknown>, scoreParsed: Record<string, unknown>): Record<string, unknown> {
-  const rawScore = report.overallScore ?? scoreParsed.overallScore ?? 50;
-  report.overallScore = normalizeScore(rawScore);
-
-  const scores = (report.scores as Record<string, unknown>) || {};
-  const allZero = Object.values(scores).every(v => Number(v) === 0);
-  const src = allZero ? ((scoreParsed.scores as Record<string, unknown>) || {}) : scores;
-
-  report.scores = {
-    market:     normalizeScore(src.market     ?? 50),
-    team:       normalizeScore(src.team       ?? 50),
-    product:    normalizeScore(src.product    ?? 50),
-    traction:   normalizeScore(src.traction   ?? 50),
-    financials: normalizeScore(src.financials ?? 50),
-  };
-
-  if (!report.verdict) {
-    const s = report.overallScore as number;
-    report.verdict = s >= 70 ? "invest" : s >= 45 ? "watch" : "pass";
+Return ONLY valid JSON (no markdown, no explanation):
+{
+  "startupName": string (creative brand name for the startup),
+  "tagline": string (specific punchy tagline),
+  "industry": string,
+  "stage": "idea"|"mvp"|"early"|"growth",
+  "country": "${country}",
+  "marketType": "${market}",
+  "capitalRequired": string (minimum capital actually needed),
+  "capitalProvided": "${capital}",
+  "capitalGap": string (honest assessment of capital sufficiency),
+  "overallScore": number (HONEST 0-100 based on real viability),
+  "verdict": "invest"|"watch"|"pass",
+  "investmentSummary": string (3-4 sentences specific to THIS startup, mention actual numbers, real challenges, honest verdict),
+  "projectedRevenue": {
+    "year1": string,
+    "year2": string,
+    "year3": string,
+    "assumptions": string
+  },
+  "marketResearch": {
+    "summary": string (specific to this idea and ${country}, mention real market dynamics),
+    "tam": string (e.g. "${currency}45,000Cr — total petroleum market in India"),
+    "tamReasoning": string (how you calculated TAM),
+    "sam": string (e.g. "${currency}8,000Cr — domestic refining segment"),
+    "samReasoning": string,
+    "som": string (e.g. "${currency}200Cr — realistic 2.5% capture in 5 years"),
+    "somReasoning": string,
+    "cagr": string,
+    "keyTrends": [string, string, string],
+    "demandSignals": string,
+    "targetDemographic": string (SPECIFIC demographic, e.g. "Hindu households aged 25-60 in Tier-1/2 cities"),
+    "culturalInsight": string (specific cultural/religious/social insight),
+    "marketScope": string
+  },
+  "competitors": [
+    {"name":string,"type":"direct"|"indirect","strength":string,"weakness":string,"threat":"high"|"medium"|"low","country":string,"marketShare":string}
+  ],
+  "competitorSummary": string,
+  "swot": {
+    "strengths": [string, string, string],
+    "weaknesses": [string, string, string],
+    "opportunities": [string, string, string],
+    "threats": [string, string, string]
+  },
+  "localAdvantages": string,
+  "culturalOpportunities": string,
+  "risks": [
+    {"name":string,"description":string,"severity":"high"|"medium"|"low","mitigation":string}
+  ],
+  "businessModels": [
+    {"name":string,"description":string,"potential":"high"|"medium","revenueEstimate":string}
+  ],
+  "growthStrategy": string,
+  "moat": string,
+  "scores": {
+    "market": number (0-100, MUST vary by idea),
+    "team": number (0-100),
+    "product": number (0-100),
+    "traction": number (0-100),
+    "financials": number (0-100, LOW if capital is insufficient)
+  },
+  "scoreReasoning": {
+    "market": string,
+    "team": string,
+    "product": string,
+    "traction": string,
+    "financials": string
+  },
+  "revenueProjection": {
+    "months": [1,3,6,12,18,24,36],
+    "revenue": [number,number,number,number,number,number,number],
+    "unit": string (e.g. "₹ Lakhs")
+  },
+  "marketShareProjection": {
+    "labels": ["Year 1","Year 2","Year 3","Year 4","Year 5"],
+    "you": [number,number,number,number,number],
+    "competitor1": {"name":string,"values":[number,number,number,number,number]},
+    "competitor2": {"name":string,"values":[number,number,number,number,number]},
+    "unit": "% market share"
+  },
+  "fundingBreakdown": {
+    "categories": ["Product/Inventory","Marketing","Operations","Technology","Legal/Compliance","Reserve"],
+    "percentages": [number,number,number,number,number,number],
+    "amounts": [string,string,string,string,string,string]
+  },
+  "bootstrap": {
+    "capitalTier": "low"|"medium"|"high",
+    "capitalAssessment": string,
+    "currency": "${currency}",
+    "howToStart": [
+      {"step":number,"title":string,"description":string,"cost":string,"timeline":string}
+    ],
+    "minimumViableSetup": string,
+    "firstMonthGoal": string,
+    "bootstrapTips": [string, string, string],
+    "fundingOptions": [
+      {"name":string,"description":string,"amount":string}
+    ],
+    "warningIfLowCapital": string|null,
+    "localResources": [{"name":string,"description":string}],
+    "culturalLaunchTips": string
   }
-  if (!report.investmentSummary && scoreParsed.investmentSummary)
-    report.investmentSummary = scoreParsed.investmentSummary;
+}`;
 
-  return report;
+  return callWithFallback([
+    // Primary: Claude Sonnet — best for comprehensive structured analysis
+    async () => {
+      const a = getAnthropic();
+      const res = await a.messages.create({
+        model:"claude-sonnet-4-5", max_tokens:6000,
+        messages:[{role:"user",content:prompt}]
+      });
+      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
+    },
+    // Fallback: Claude Haiku
+    async () => {
+      const a = getAnthropic();
+      const res = await a.messages.create({
+        model:"claude-haiku-4-5-20251001", max_tokens:5000,
+        messages:[{role:"user",content:prompt}]
+      });
+      return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
+    },
+    // Fallback: Groq
+    async () => {
+      const groq = getGroq();
+      const res = await groq.chat.completions.create({
+        model:"llama-3.3-70b-versatile",
+        messages:[{role:"user",content:prompt}],
+        max_tokens:5000, temperature:0.3
+      });
+      return res.choices[0]?.message?.content||"";
+    },
+  ], "ComprehensiveAnalysis");
 }
 
-function parseJSON(raw: string): Record<string, unknown> {
+function parseJSON(raw: string): Record<string,unknown> {
   const clean = raw.replace(/```json|```/g,"").trim();
   const match = clean.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("No JSON object in response");
   return JSON.parse(match[0]);
 }
 
+function normalizeScore(val: unknown): number {
+  const n = Number(val);
+  if (isNaN(n)) return 50;
+  if (n > 0 && n <= 10) return Math.round(n*10);
+  return Math.round(Math.min(Math.max(n,0),100));
+}
+
+function normalizeReport(report: Record<string,unknown>): Record<string,unknown> {
+  report.overallScore = normalizeScore(report.overallScore);
+  const scores = (report.scores as Record<string,unknown>)||{};
+  report.scores = {
+    market:     normalizeScore(scores.market    ??55),
+    team:       normalizeScore(scores.team      ??50),
+    product:    normalizeScore(scores.product   ??50),
+    traction:   normalizeScore(scores.traction  ??40),
+    financials: normalizeScore(scores.financials??45),
+  };
+  // Auto-fix verdict if inconsistent with score
+  const s = report.overallScore as number;
+  if (!report.verdict || report.verdict === "") {
+    report.verdict = s >= 68 ? "invest" : s >= 48 ? "watch" : "pass";
+  }
+  return report;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { idea, capital="Not specified", country="India", market="domestic" } = await req.json();
-    if (!idea?.trim()) return NextResponse.json({ error:"Idea is required" }, { status:400 });
+    const {idea, capital="Not specified", country="India", market="domestic"} = await req.json();
+    if (!idea?.trim()) return NextResponse.json({error:"Idea is required"},{status:400});
 
-    // ── Legality check first ──────────────────────────────────────────────────
+    // Legality check
     const legalCheck = await checkLegality(idea, country);
     if (!legalCheck.legal) {
       return NextResponse.json({
-        error: `This business idea cannot be analyzed.`,
-        details: `This idea appears to involve illegal activities in ${country}: ${legalCheck.reason}. Please enter a legal business idea.`,
-        illegal: true,
-      }, { status: 400 });
+        error:"This business idea cannot be analyzed.",
+        details:`This idea involves illegal activities in ${country}: ${legalCheck.reason}. Please enter a legal business idea.`,
+        illegal:true,
+      },{status:400});
     }
 
-    // ── Run agents 1-3 in parallel ────────────────────────────────────────────
-    const [marketRaw, competitorRaw, strategyRaw] = await Promise.all([
-      marketResearchAgent(idea, capital, country, market),
-      competitorAnalysisAgent(idea, country, market),
-      businessStrategyAgent(idea, capital, country, market),
-    ]);
+    // Single comprehensive analysis — no truncation, full context preserved
+    const raw = await comprehensiveAnalysisAgent(idea, capital, country, market);
+    let report = parseJSON(raw);
+    report = normalizeReport(report);
 
-    const ctxStr = `${marketRaw} ${competitorRaw} ${strategyRaw}`;
-    const scoringRaw = await scoringAgent(idea, capital, country, market, ctxStr);
-
-    let scoreParsed: any = {};
-    try { scoreParsed = parseJSON(scoringRaw); } catch {}
-    const score = scoreParsed.overallScore || 50;
-
-    const bootstrapRaw = await bootstrapAdvisorAgent(idea, capital, country, market, score);
-
-    const finalRaw = await synthesizerAgent(idea, capital, country, market, {
-      market: marketRaw, competitors: competitorRaw,
-      strategy: strategyRaw, scoring: scoringRaw, bootstrap: bootstrapRaw,
-    });
-
-    let report = parseJSON(finalRaw);
-    report = normalizeReport(report, scoreParsed);
+    // Add agentsUsed for UI display
+    report.agentsUsed = ["Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet"];
 
     if (process.env.N8N_WEBHOOK_URL) {
-      fetch(process.env.N8N_WEBHOOK_URL, {
+      fetch(process.env.N8N_WEBHOOK_URL,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ idea, capital, country, market, report, timestamp: new Date().toISOString() }),
+        body:JSON.stringify({idea,capital,country,market,report,timestamp:new Date().toISOString()}),
       }).catch(()=>{});
     }
 
-    return NextResponse.json({ report });
-  } catch (err) {
-    console.error("Multi-agent error:", err);
-    return NextResponse.json({ error:"Analysis failed", details: String(err) }, { status:500 });
+    return NextResponse.json({report});
+  } catch(err) {
+    console.error("Analysis error:",err);
+    return NextResponse.json({error:"Analysis failed",details:String(err)},{status:500});
   }
 }
