@@ -3,13 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AI Startup Intelligence Analyst",
-  description: "Multi-agent VC-grade startup analysis powered by Claude AI",
+  description: "Multi-agent VC-grade startup analysis powered by Claude, Groq & Gemini",
   keywords: ["startup", "AI", "VC", "analysis", "business intelligence"],
-  openGraph: {
-    title: "AI Startup Intelligence Analyst",
-    description: "Get a complete VC-style analysis of your startup idea in seconds",
-    type: "website",
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body>{children}</body>
     </html>
