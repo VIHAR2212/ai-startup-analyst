@@ -12,8 +12,13 @@ interface Props {
 
 const COLORS = ["#4ade80","#60a5fa","#f59e0b","#a78bfa","#f472b6","#34d399"];
 
+function easeOutCubic(t: number) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 export default function FundingPieChart({ data, capital }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -32,63 +37,104 @@ export default function FundingPieChart({ data, capital }: Props) {
     const innerR = size * 0.22;
 
     // Normalize percentages
-    const total = data.percentages.reduce((a,b) => a+b, 0);
+    const total = data.percentages.reduce((a,b) => a+b, 0) || 1;
     const normalized = data.percentages.map(p => (p/total)*360);
 
-    let startAngle = -Math.PI / 2;
+    const DURATION = 900; // ms
+    let start: number | null = null;
 
-    normalized.forEach((angle, i) => {
-      const endAngle = startAngle + (angle * Math.PI / 180);
-      const midAngle = startAngle + (angle * Math.PI / 180) / 2;
-      const isLarge = angle > 45;
+    function render(timestamp: number) {
+      if (start === null) start = timestamp;
+      const elapsed = timestamp - start;
+      const rawProgress = Math.min(elapsed / DURATION, 1);
+      const progress = easeOutCubic(rawProgress);
 
-      // Slight 3D effect — offset slice outward
-      const offsetX = Math.cos(midAngle) * 4;
-      const offsetY = Math.sin(midAngle) * 4;
+      ctx!.clearRect(0, 0, size, size);
 
-      // Shadow
-      ctx.shadowColor = COLORS[i] + "44";
-      ctx.shadowBlur = 12;
+      // Total sweep available at this point in the animation (degrees)
+      const totalSweep = 360 * progress;
 
-      ctx.beginPath();
-      ctx.moveTo(cx + offsetX, cy + offsetY);
-      ctx.arc(cx + offsetX, cy + offsetY, outerR, startAngle, endAngle);
-      ctx.arc(cx + offsetX, cy + offsetY, innerR, endAngle, startAngle, true);
-      ctx.closePath();
+      let startAngle = -Math.PI / 2;
+      let accumulated = 0; // degrees drawn so far across all slices
 
-      // Gradient fill
-      const grad = ctx.createRadialGradient(cx+offsetX, cy+offsetY, innerR, cx+offsetX, cy+offsetY, outerR);
-      grad.addColorStop(0, COLORS[i] + "cc");
-      grad.addColorStop(1, COLORS[i]);
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      normalized.forEach((angle, i) => {
+        // How much of this slice's angle is currently visible
+        const remaining = Math.max(0, Math.min(angle, totalSweep - accumulated));
+        accumulated += angle;
 
-      // Percentage label for large slices
-      if (isLarge) {
-        const labelR = (outerR + innerR) / 2;
-        const lx = cx + offsetX + Math.cos(midAngle) * labelR;
-        const ly = cy + offsetY + Math.sin(midAngle) * labelR;
-        ctx.fillStyle = "#fff";
-        ctx.font = `bold ${size*0.05}px Inter,sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`${Math.round(data.percentages[i])}%`, lx, ly);
+        if (remaining <= 0) {
+          startAngle += angle * Math.PI / 180; // keep angles in sync even if not drawn
+          return;
+        }
+
+        const sliceEndAngle = startAngle + (remaining * Math.PI / 180);
+        const midAngle = startAngle + (angle * Math.PI / 180) / 2;
+        const isLarge = angle > 45;
+
+        // Slight 3D effect — offset slice outward
+        const offsetX = Math.cos(midAngle) * 4;
+        const offsetY = Math.sin(midAngle) * 4;
+
+        // Shadow
+        ctx!.shadowColor = COLORS[i % COLORS.length] + "44";
+        ctx!.shadowBlur = 12;
+
+        ctx!.beginPath();
+        ctx!.moveTo(cx + offsetX, cy + offsetY);
+        ctx!.arc(cx + offsetX, cy + offsetY, outerR, startAngle, sliceEndAngle);
+        ctx!.arc(cx + offsetX, cy + offsetY, innerR, sliceEndAngle, startAngle, true);
+        ctx!.closePath();
+
+        // Gradient fill
+        const grad = ctx!.createRadialGradient(cx+offsetX, cy+offsetY, innerR, cx+offsetX, cy+offsetY, outerR);
+        grad.addColorStop(0, COLORS[i % COLORS.length] + "cc");
+        grad.addColorStop(1, COLORS[i % COLORS.length]);
+        ctx!.fillStyle = grad;
+        ctx!.fill();
+        ctx!.shadowBlur = 0;
+
+        // Percentage label for large slices — fade in once slice mostly drawn
+        if (isLarge && remaining >= angle * 0.98) {
+          const labelR = (outerR + innerR) / 2;
+          const lx = cx + offsetX + Math.cos(midAngle) * labelR;
+          const ly = cy + offsetY + Math.sin(midAngle) * labelR;
+          const labelAlpha = Math.min(1, (remaining / angle - 0.98) / 0.02);
+          ctx!.fillStyle = `rgba(255,255,255,${labelAlpha})`;
+          ctx!.font = `bold ${size*0.05}px Inter,sans-serif`;
+          ctx!.textAlign = "center";
+          ctx!.textBaseline = "middle";
+          ctx!.fillText(`${Math.round(data.percentages[i])}%`, lx, ly);
+        }
+
+        startAngle += angle * Math.PI / 180;
+      });
+
+      // Centre label fades in with overall progress
+      const centerAlpha = Math.min(1, progress / 0.6);
+      ctx!.fillStyle = `rgba(255,255,255,${0.7 * centerAlpha})`;
+      ctx!.font = `600 ${size*0.065}px Inter,sans-serif`;
+      ctx!.textAlign = "center";
+      ctx!.textBaseline = "middle";
+      ctx!.fillText("Capital", cx, cy - size*0.04);
+      ctx!.font = `${size*0.05}px Inter,sans-serif`;
+      ctx!.fillStyle = `rgba(255,255,255,${0.4 * centerAlpha})`;
+      ctx!.fillText("Allocation", cx, cy + size*0.04);
+
+      if (rawProgress < 1) {
+        rafRef.current = requestAnimationFrame(render);
+      } else {
+        rafRef.current = null;
       }
+    }
 
-      startAngle = endAngle;
-    });
+    rafRef.current = requestAnimationFrame(render);
 
-    // Centre label
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.font = `600 ${size*0.065}px Inter,sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("Capital", cx, cy - size*0.04);
-    ctx.font = `${size*0.05}px Inter,sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.fillText("Allocation", cx, cy + size*0.04);
-
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
   }, [data, capital]);
 
   if (!data?.percentages?.length) return null;
@@ -100,9 +146,9 @@ export default function FundingPieChart({ data, capital }: Props) {
         <div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>How to allocate {capital}</div>
         {data.categories.map((cat,i) => (
           <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-            <div style={{width:8,height:8,borderRadius:2,background:COLORS[i],flexShrink:0}} />
+            <div style={{width:8,height:8,borderRadius:2,background:COLORS[i % COLORS.length],flexShrink:0}} />
             <div style={{flex:1,fontSize:11,color:"var(--foreground)"}}>{cat}</div>
-            <div style={{fontSize:11,color:COLORS[i],fontWeight:600}}>{data.amounts[i]}</div>
+            <div style={{fontSize:11,color:COLORS[i % COLORS.length],fontWeight:600}}>{data.amounts[i]}</div>
             <div style={{fontSize:10,color:"var(--muted)"}}>{data.percentages[i]}%</div>
           </div>
         ))}
