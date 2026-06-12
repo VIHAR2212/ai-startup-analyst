@@ -10,7 +10,6 @@ const PRESETS: Record<string,string[]> = {
 };
 const COUNTRIES = ["India","USA","UK","Germany","France","Australia","Canada","Singapore","UAE","Japan","Brazil","South Africa","Netherlands","Nigeria","Kenya"];
 const FLAGS: Record<string,string> = {India:"🇮🇳",USA:"🇺🇸",UK:"🇬🇧",Germany:"🇩🇪",France:"🇫🇷",Australia:"🇦🇺",Canada:"🇨🇦",Singapore:"🇸🇬",UAE:"🇦🇪",Japan:"🇯🇵",Brazil:"🇧🇷","South Africa":"🇿🇦",Netherlands:"🇳🇱",Nigeria:"🇳🇬",Kenya:"🇰🇪"};
-const EXAMPLES = ["AI-powered finance coach for Gen Z","Agarbatti brand for modern Hindu homes","Hardware store with Blinkit-style delivery","SaaS for CA exam prep in India"];
 
 interface Props {
   idea:string; setIdea:(v:string)=>void;
@@ -31,18 +30,18 @@ export default function InputPage({idea,setIdea,capital,setCapital,country,setCo
       animate={{opacity:1,y:0}}
       exit={{opacity:0,y:-20,scale:0.98}}
       transition={{duration:0.4,ease:"easeOut"}}
-      style={{minHeight:"calc(100vh - 54px)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 20px",position:"relative",zIndex:1}}
+      style={{minHeight:"calc(100vh - 54px)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",position:"relative",zIndex:1}}
     >
       {/* Hero */}
-      <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:0.1}} style={{textAlign:"center",marginBottom:40,maxWidth:640}}>
-        <div style={{display:"inline-flex",alignItems:"center",gap:8,padding:"5px 14px",background:"rgba(212,132,26,0.08)",border:"0.5px solid rgba(212,132,26,0.2)",borderRadius:99,fontSize:11,color:"var(--amber-3)",marginBottom:22,letterSpacing:"0.04em"}}>
+      <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:0.1}} style={{textAlign:"center",marginBottom:24,maxWidth:640}}>
+        <div style={{display:"inline-flex",alignItems:"center",gap:8,padding:"5px 14px",background:"rgba(212,132,26,0.08)",border:"0.5px solid rgba(212,132,26,0.2)",borderRadius:99,fontSize:11,color:"var(--amber-3)",marginBottom:16,letterSpacing:"0.04em"}}>
           ✦ Multi-agent AI · 6 agents · 3 models
         </div>
-        <h1 className="display-xl" style={{marginBottom:14}}>
+        <h1 className="display-xl" style={{marginBottom:10}}>
           <span className="grad-text">Startup Intelligence</span><br/>
-          <span style={{color:"var(--hint)",fontWeight:300,fontSize:"clamp(26px,3.5vw,48px)"}}>that thinks like a VC</span>
+          <span style={{color:"var(--hint)",fontWeight:300,fontSize:"clamp(22px,3vw,42px)"}}>that thinks like a VC</span>
         </h1>
-        <p style={{fontSize:14,color:"var(--muted)",lineHeight:1.7,maxWidth:480,margin:"0 auto"}}>
+        <p style={{fontSize:13,color:"var(--muted)",lineHeight:1.6,maxWidth:480,margin:"0 auto"}}>
           Enter your idea, country & capital for a brutally honest VC-grade report — market sizing, competitors, scores, revenue projections, and a launch roadmap.
         </p>
       </motion.div>
@@ -90,30 +89,6 @@ export default function InputPage({idea,setIdea,capital,setCapital,country,setCo
         {error&&<div style={{marginTop:12,padding:"10px 12px",background:"rgba(224,85,85,0.07)",border:"0.5px solid rgba(224,85,85,0.2)",borderRadius:10,fontSize:11,color:"#e05555",lineHeight:1.5}}>⚠️ {error}</div>}
 
         <div style={{fontSize:9,color:"var(--hint)",textAlign:"center",marginTop:12,letterSpacing:"0.04em"}}>Ctrl+Enter to run analysis</div>
-      </motion.div>
-
-      {/* Examples */}
-      <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.3}} style={{marginTop:24,display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",maxWidth:560}}>
-        {EXAMPLES.map((ex,i)=>(
-          <button key={i} onClick={()=>setIdea(ex)} className="chip chip-white glass-hover" style={{fontSize:11,padding:"7px 14px",cursor:"pointer",border:"0.5px solid var(--glass-border)",fontFamily:"inherit"}}>
-            {ex}
-          </button>
-        ))}
-      </motion.div>
-
-      {/* Model cards */}
-      <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.35}} style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:32,maxWidth:560,width:"100%"}}>
-        {[
-          {icon:"⚡",name:"Groq / Llama",sub:"270 tok/s · Market research",color:"#d4841a"},
-          {icon:"◆",name:"Claude / Haiku",sub:"Best reasoning · Synthesis",color:"#c0a060"},
-          {icon:"✦",name:"Gemini / Flash",sub:"Creative strategy",color:"#50b4b4"},
-        ].map(m=>(
-          <div key={m.name} className="glass glass-hover" style={{padding:"16px 14px",borderRadius:14,textAlign:"center",cursor:"default"}}>
-            <div style={{fontSize:20,marginBottom:8,filter:`drop-shadow(0 0 8px ${m.color}66)`}}>{m.icon}</div>
-            <div style={{fontSize:11,fontWeight:600,color:m.color,marginBottom:4}}>{m.name}</div>
-            <div style={{fontSize:9,color:"var(--hint)",lineHeight:1.4}}>{m.sub}</div>
-          </div>
-        ))}
       </motion.div>
 
       {/* History */}
