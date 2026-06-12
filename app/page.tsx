@@ -59,9 +59,12 @@ export default function Home() {
 
       {/* ── Ambient amber waves (Noon-style, persistent) ── */}
       <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}>
-        <div className="amber-orb" style={{width:700,height:500,background:"radial-gradient(ellipse,rgba(212,132,26,0.18) 0%,rgba(180,90,10,0.08) 50%,transparent 70%)",top:-180,right:-150,animationDuration:"20s"}}/>
-        <div className="amber-orb" style={{width:500,height:400,background:"radial-gradient(ellipse,rgba(240,160,60,0.08) 0%,transparent 65%)",top:"30%",left:"20%",animationDuration:"28s",animationDelay:"-8s"}}/>
-        <div className="amber-orb" style={{width:600,height:300,background:"radial-gradient(ellipse,rgba(200,100,20,0.06) 0%,transparent 70%)",bottom:-100,left:"10%",animationDuration:"24s",animationDelay:"-14s"}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(212,132,26,0.05),rgba(0,0,0,0) 40%,rgba(245,166,35,0.04) 80%)"}}/>
+        <div className="amber-orb" style={{width:800,height:600,background:"radial-gradient(ellipse,rgba(212,132,26,0.28) 0%,rgba(180,90,10,0.12) 50%,transparent 72%)",top:-220,right:-180,animationDuration:"18s"}}/>
+        <div className="amber-orb" style={{width:560,height:460,background:"radial-gradient(ellipse,rgba(245,166,35,0.20) 0%,transparent 68%)",top:"28%",left:"-8%",animationDuration:"24s",animationDelay:"-6s"}}/>
+        <div className="amber-orb" style={{width:680,height:380,background:"radial-gradient(ellipse,rgba(200,100,20,0.18) 0%,transparent 70%)",bottom:-140,left:"15%",animationDuration:"22s",animationDelay:"-12s"}}/>
+        <div className="amber-orb" style={{width:420,height:420,background:"radial-gradient(ellipse,rgba(255,190,90,0.14) 0%,transparent 65%)",top:"55%",right:"-6%",animationDuration:"26s",animationDelay:"-4s"}}/>
+        <div className="amber-orb" style={{width:340,height:340,background:"radial-gradient(ellipse,rgba(80,180,180,0.10) 0%,transparent 68%)",top:"8%",left:"42%",animationDuration:"30s",animationDelay:"-18s"}}/>
         <div style={{position:"absolute",inset:0,backgroundImage:"url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E\")",opacity:0.4}}/>
       </div>
 
