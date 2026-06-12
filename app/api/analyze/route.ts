@@ -364,6 +364,73 @@ export async function POST(req: NextRequest) {
     let report = parseJSON(raw);
     report = normalizeReport(report);
 
+    // ── Safety net: ensure revenueProjection always present, input-dependent,
+    // and shape-correct. If the model omitted it or returned mismatched
+    // arrays, generate deterministic values from inputs. ──────────────────
+    const rp = report.revenueProjection as any;
+    if (
+      !rp?.months?.length ||
+      !rp?.revenue?.length ||
+      rp.months.length !== rp.revenue.length
+    ) {
+      const fallbackRevenue = computeRevenue(idea, capital, country);
+      report.revenueProjection = {
+        months: fallbackRevenue.months,
+        revenue: fallbackRevenue.revenue,
+        unit: fallbackRevenue.unit,
+      };
+      if (!report.projectedRevenue) {
+        report.projectedRevenue = {
+          year1: fallbackRevenue.year1,
+          year2: fallbackRevenue.year2,
+          year3: fallbackRevenue.year3,
+          assumptions: fallbackRevenue.assumptions,
+        };
+      }
+    }
+
+    // ── Safety net: ensure fundingBreakdown always present, sums to ~100,
+    // and varies by idea type / capital tier. ──────────────────────────────
+    const fb = report.fundingBreakdown as any;
+    const fbSum = (fb?.percentages || []).reduce(
+      (a: number, b: number) => a + Number(b || 0),
+      0
+    );
+    if (
+      !fb?.percentages?.length ||
+      !fb?.categories?.length ||
+      fb.percentages.length !== fb.categories.length ||
+      Math.abs(fbSum - 100) > 5
+    ) {
+      const ideaLower = idea.toLowerCase();
+      const techHeavy = /ai|saas|software|app|platform/.test(ideaLower);
+      const physicalGoods = /store|shop|hardware|food|restaurant|manufactur/.test(ideaLower);
+
+      let pct: number[];
+      if (techHeavy) {
+        pct = [20, 25, 15, 25, 5, 10]; // tech-led allocation
+      } else if (physicalGoods) {
+        pct = [40, 20, 20, 5, 5, 10]; // inventory-heavy allocation
+      } else {
+        pct = [30, 25, 20, 10, 5, 10]; // balanced default
+      }
+
+      const categories = [
+        "Product/Inventory",
+        "Marketing",
+        "Operations",
+        "Technology",
+        "Legal/Compliance",
+        "Reserve",
+      ];
+
+      report.fundingBreakdown = {
+        categories,
+        percentages: pct,
+        amounts: pct.map((p) => `~${p}% of ${capital}`),
+      };
+    }
+
     // Add agentsUsed for UI display
     report.agentsUsed = ["Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet"];
 
