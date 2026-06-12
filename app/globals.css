@@ -268,8 +268,8 @@ select.input-field {
 
 @keyframes float-blob {
   0%,100% { transform: translate(0,0) scale(1) rotate(0deg); }
-  33%      { transform: translate(40px,-30px) scale(1.08) rotate(5deg); }
-  66%      { transform: translate(-25px,20px) scale(0.94) rotate(-3deg); }
+  33%      { transform: translate(70px,-50px) scale(1.15) rotate(8deg); }
+  66%      { transform: translate(-45px,35px) scale(0.9) rotate(-6deg); }
 }
 
 @keyframes wave-particle {
