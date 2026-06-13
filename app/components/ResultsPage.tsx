@@ -169,7 +169,7 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
         </button>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"220px 1fr",maxWidth:1280,margin:"0 auto",gap:24,padding:"24px"}}>
+      <div className="results-layout" style={{display:"grid",gridTemplateColumns:"220px 1fr",margin:"0 auto",gap:24,padding:"24px"}}>
 
         {/* Sticky sidebar nav */}
         <aside className="sidebar-panel" style={{position:"sticky",top:130,height:"fit-content",alignSelf:"start"}}>
