@@ -74,23 +74,55 @@ function computeScores(idea: string, capital: string, country: string): {
   else if (/campaign|service/.test(ideaLower)) product = 45;
   const productReasoning = "Solution concept clarity and differentiation potential";
 
-  // Financial score — most critical, based on capital vs industry requirement
-  const capLower = capital.toLowerCase().replace(/[₹$£€]/g,"").replace(/,/g,"");
-  let capValue = 50; // default medium
-  if (capLower.includes("10k") || capLower.includes("50k") || capLower.includes("10,000") || capLower.includes("50,000")) capValue = 10;
-  else if (capLower.includes("2l") || capLower.includes("10l") || capLower.includes("2 lakh") || capLower.includes("10 lakh")) capValue = 25;
-  else if (capLower.includes("10l") || capLower.includes("50l") || capLower.includes("50 lakh")) capValue = 40;
-  else if (capLower.includes("50l") || capLower.includes("1cr") || capLower.includes("crore")) capValue = 60;
-  else if (capLower.includes("50l+") || capLower.includes("5k") || capLower.includes("25k")) capValue = 35;
-  else if (capLower.includes("100k") || capLower.includes("500k") || capLower.includes("1l") || capLower.includes("5l")) capValue = 45;
+  // Financial score — based on RATIO of provided capital to actual industry requirement,
+  // not an absolute scale. A ₹50K tea stall and a ₹50Cr EV charging network can both
+  // score well if the capital matches what THAT business actually needs.
 
-  // Heavy industry needs much more capital
-  let finScore = capValue;
-  if (/coal|mining|petroleum|oil refin|refinery|steel|cement/.test(ideaLower)) finScore = Math.min(capValue, 15);
-  else if (/hospital|pharma|manufacturing/.test(ideaLower)) finScore = Math.min(capValue, 25);
-  else if (/food delivery|saas|app/.test(ideaLower) && capValue >= 40) finScore = capValue + 10;
+  // Parse provided capital into a rough rupee/dollar value (in Lakhs INR equivalent for India)
+  function parseCapitalToLakhs(capStr: string): number {
+    const c = capStr.toLowerCase().replace(/[₹$£€,\s]/g,"");
+    // Range strings like "2l-10l" or "50k-2l" — take the upper bound
+    const parts = c.split(/[-–]/).map(p=>p.trim()).filter(Boolean);
+    const last = parts[parts.length-1] || c;
+    let val = 0;
+    if (/cr|crore/.test(last)) val = (parseFloat(last) || 1) * 100; // 1 Cr = 100 Lakhs
+    else if (/l\+?$|lakh/.test(last)) val = parseFloat(last) || 1;
+    else if (/k\+?$/.test(last)) val = (parseFloat(last) || 1) / 100; // 1 Lakh = 100K, so K/100 = Lakhs
+    else val = parseFloat(last) || 1; // assume already in Lakhs-equivalent if unitless
+    // Handle "50l+" style trailing plus as slightly higher
+    if (/\+/.test(last)) val *= 1.3;
+    return val || 1;
+  }
+  const providedLakhs = parseCapitalToLakhs(capital);
+
+  // Estimate ACTUAL minimum viable capital required for this idea, in Lakhs (India-equivalent)
+  let requiredLakhs = 3; // default: small local service business (~₹3L)
+  if (/coal|mining|petroleum|oil refin|refinery|steel|cement/.test(ideaLower)) requiredLakhs = 50000; // ₹500Cr+
+  else if (/ev charging|electric vehicle charging|charging infrastructure|charging network/.test(ideaLower)) requiredLakhs = 5000; // ₹50Cr+
+  else if (/hospital|pharma manufactur|drug manufactur/.test(ideaLower)) requiredLakhs = 2000; // ₹20Cr+
+  else if (/manufacturing|factory|plant/.test(ideaLower)) requiredLakhs = 500; // ₹5Cr
+  else if (/hardware store|retail chain|supply.?chain/.test(ideaLower)) requiredLakhs = 50; // ₹50L
+  else if (/saas|software|platform|app development/.test(ideaLower)) requiredLakhs = 10; // ₹10L (mostly dev + hosting + small team)
+  else if (/food delivery|restaurant|cafe|cloud kitchen/.test(ideaLower)) requiredLakhs = 15; // ₹15L
+  else if (/education|coaching|edtech/.test(ideaLower)) requiredLakhs = 5; // ₹5L
+  else if (/agarbatti|incense|small.?scale manufactur|home.?based/.test(ideaLower)) requiredLakhs = 2; // ₹2L
+  else if (/tea stall|street food|kirana|small shop|tiffin/.test(ideaLower)) requiredLakhs = 1; // ₹1L
+
+  // Score based on ratio of provided to required capital
+  const ratio = providedLakhs / requiredLakhs;
+  let finScore: number;
+  if (ratio >= 1.5) finScore = 80;       // well-funded relative to need
+  else if (ratio >= 1.0) finScore = 70;  // sufficient
+  else if (ratio >= 0.5) finScore = 50;  // tight but workable, may need to bootstrap/phase
+  else if (ratio >= 0.2) finScore = 30;  // significant shortfall
+  else finScore = 12;                    // severe shortfall — capital nowhere near enough
+
   finScore = Math.min(Math.max(finScore, 8), 85);
-  const financialsReasoning = `Capital ${capital} vs actual industry requirement for "${idea}"`;
+
+  const shortfallLakhs = Math.max(0, requiredLakhs - providedLakhs);
+  const financialsReasoning = shortfallLakhs > 0
+    ? `"${idea}" typically requires ~₹${requiredLakhs >= 100 ? (requiredLakhs/100).toFixed(1)+"Cr" : requiredLakhs+"L"} to launch; provided capital (${capital}) covers roughly ${Math.round(ratio*100)}% of this — a gap of ~₹${shortfallLakhs >= 100 ? (shortfallLakhs/100).toFixed(1)+"Cr" : shortfallLakhs.toFixed(1)+"L"}.`
+    : `"${idea}" typically requires ~₹${requiredLakhs >= 100 ? (requiredLakhs/100).toFixed(1)+"Cr" : requiredLakhs+"L"} to launch; provided capital (${capital}) meets or exceeds this requirement.`;
 
   const overall = Math.round((market + team + product + traction + finScore) / 5);
 
@@ -369,6 +401,10 @@ function normalizeReport(report: Record<string,unknown>, idea: string, capital: 
   // Verdict always derived from the computed overall score for consistency
   const s = report.overallScore as number;
   report.verdict = s >= 68 ? "invest" : s >= 48 ? "watch" : "pass";
+
+  // Override capitalGap with our ratio-based reasoning (financials reasoning already
+  // explains the comparison against actual industry requirement, not absolute judgment)
+  report.capitalGap = computed.reasoning.financials;
 
   return report;
 }
