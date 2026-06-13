@@ -121,7 +121,10 @@ function computeRevenue(idea: string, capital: string, country: string): {
   const currency = country.toLowerCase().includes("india") ? "₹" : country.toLowerCase().includes("usa") ? "$" : "₹";
   const inIndia = country.toLowerCase().includes("india");
 
-  // Base monthly revenue at month 36 in Lakhs (India) or $K (USA)
+  // Declining/saturated industries — flat or shrinking revenue regardless of capital
+  const isDeclining = /cyber\s?caf|cybercafe|internet caf|landline|pco|fax|video rental|dvd rental|print newspaper|newspaper printing|pager|cd shop|cassette/.test(ideaLower);
+
+  // Base monthly revenue at month 36 (final period) in Lakhs (India) or $K (USA)
   let base = 5; // default
   if (/saas|software|platform/.test(ideaLower)) base = inIndia ? 25 : 50;
   else if (/food delivery|restaurant/.test(ideaLower)) base = inIndia ? 15 : 20;
@@ -130,29 +133,38 @@ function computeRevenue(idea: string, capital: string, country: string): {
   else if (/agarbatti|incense/.test(ideaLower)) base = inIndia ? 8 : 12;
   else if (/coal|mining|petroleum/.test(ideaLower)) base = inIndia ? 200 : 300;
   else if (/health|hospital/.test(ideaLower)) base = inIndia ? 30 : 80;
+  else if (isDeclining) base = inIndia ? 3 : 5; // small, stagnant revenue base
 
-  // Scale by capital
-  if (capLower.includes("50l+") || capLower.includes("1cr") || capLower.includes("100k")) base *= 1.5;
-  if (capLower.includes("2l") || capLower.includes("5k")) base *= 0.5;
+  // Scale by capital (declining industries don't scale — more capital can't fix a dying market)
+  if (!isDeclining) {
+    if (capLower.includes("50l+") || capLower.includes("1cr") || capLower.includes("100k")) base *= 1.5;
+    if (capLower.includes("2l") || capLower.includes("5k")) base *= 0.5;
+  }
 
-  // S-curve growth: slow start, acceleration, plateau
   const unit = inIndia ? `${currency} Lakhs` : `${currency}K`;
-  const r = [
-    +(base * 0.01).toFixed(1),  // M1 — near zero
-    +(base * 0.03).toFixed(1),  // M3
-    +(base * 0.08).toFixed(1),  // M6
-    +(base * 0.20).toFixed(1),  // M12
-    +(base * 0.45).toFixed(1),  // M18
-    +(base * 0.72).toFixed(1),  // M24
-    +(base * 1.00).toFixed(1),  // M36
-  ];
 
-  const y1 = inIndia ? `${currency}${(base*0.8).toFixed(0)}L` : `${currency}${(base*0.8).toFixed(0)}K`;
-  const y2 = inIndia ? `${currency}${(base*1.8).toFixed(0)}L` : `${currency}${(base*1.8).toFixed(0)}K`;
-  const y3 = inIndia ? `${currency}${(base*3.5).toFixed(0)}L` : `${currency}${(base*3.5).toFixed(0)}K`;
+  // 5-year span, one data point per year (years 1-5 from now)
+  let r: number[];
+  if (isDeclining) {
+    // Flat-to-declining: starts near base, gently decreases ~8% per year
+    r = [0,1,2,3,4].map(yr => +(base * Math.pow(0.92, yr)).toFixed(1));
+  } else {
+    // S-curve growth across 5 yearly points: slow start, acceleration, plateau
+    const curve = [0.08, 0.20, 0.45, 0.72, 1.00];
+    r = curve.map(f => +(base * f).toFixed(1));
+  }
 
-  return { months:[1,3,6,12,18,24,36], revenue:r, unit, year1:y1, year2:y2, year3:y3,
-    assumptions:`Based on ${idea} market growth in ${country}, conservative 10-15% MoM growth after month 6` };
+  const months = [12,24,36,48,60]; // year 1 through year 5, in months-from-now
+
+  const y1 = inIndia ? `${currency}${(r[0]).toFixed(0)}L` : `${currency}${(r[0]).toFixed(0)}K`;
+  const y2 = inIndia ? `${currency}${(r[2]).toFixed(0)}L` : `${currency}${(r[2]).toFixed(0)}K`;
+  const y3 = inIndia ? `${currency}${(r[4]).toFixed(0)}L` : `${currency}${(r[4]).toFixed(0)}K`;
+
+  const assumptions = isDeclining
+    ? `Based on ${idea} in ${country} — a structurally declining market; revenue is expected to plateau or shrink ~8% annually regardless of additional capital.`
+    : `Based on ${idea} market growth in ${country}, conservative 10-15% MoM growth after month 6, projected across 5 years.`;
+
+  return { months, revenue:r, unit, year1:y1, year2:y2, year3:y3, assumptions };
 }
 
 async function comprehensiveAnalysisAgent(idea: string, capital: string, country: string, market: string, onModelUsed?: (model:string)=>void): Promise<string> {
