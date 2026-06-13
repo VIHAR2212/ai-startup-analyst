@@ -62,14 +62,14 @@ export default function RevenueChart({ data, verdict }: Props) {
         ctx!.textAlign = "right";
         ctx!.fillText(val >= 100 ? Math.round(val)+"" : val.toFixed(1), pad.left - 6, y + 4);
       }
-      // X labels — convert months-from-now to calendar years
+      // X labels — convert months-from-now to calendar years (one label per year)
       ctx!.fillStyle = "rgba(255,255,255,0.35)";
       ctx!.font = "10px Inter, sans-serif";
       ctx!.textAlign = "center";
       const currentYear = new Date().getFullYear();
       data.months.forEach((m, i) => {
         const x = pad.left + (chartW / (data.months.length - 1)) * i;
-        const yearOffset = Math.floor((m - 1) / 12);
+        const yearOffset = Math.round(m / 12);
         ctx!.fillText(`${currentYear + yearOffset}`, x, H - pad.bottom + 16);
       });
       // Unit label
