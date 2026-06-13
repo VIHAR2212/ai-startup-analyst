@@ -112,15 +112,34 @@ body {
 
 .section-body { padding: 24px; }
 
-/* ── Metric cards ── */
+/* ── Metric cards (glassmorphism, centered content) ── */
 .metric-card {
-  background: var(--black-3);
+  background: var(--glass-bg);
   border: 0.5px solid var(--glass-border);
   border-radius: var(--r-lg);
-  padding: 16px;
-  transition: border-color 0.2s, background 0.2s;
+  padding: 18px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  transition: border-color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
-.metric-card:hover { border-color: rgba(212,132,26,0.2); background: var(--black-4); }
+.metric-card:hover {
+  border-color: rgba(212,132,26,0.25);
+  background: var(--glass-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+
+/* Center inner rows/labels that were previously left-aligned */
+.metric-card > div { width: 100%; }
+.metric-card [style*="display:flex"][style*="alignItems:center"] {
+  justify-content: center !important;
+}
 
 /* ── Buttons ── */
 .btn-primary {
@@ -302,6 +321,11 @@ select.input-field {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* ── Results page wide layout ── */
+.results-layout {
+  max-width: 1600px;
 }
 
 @media (max-width: 768px) {
