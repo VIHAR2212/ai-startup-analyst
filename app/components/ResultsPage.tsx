@@ -44,6 +44,26 @@ function SC({icon,title,tag,id,children}:{icon:string;title:string;tag?:string;i
   );
 }
 
+// Capital coverage bar — shows what % of the industry-typical requirement
+// the user's provided capital covers, using report.capitalComparison from route.ts
+function CapitalCoverageBar({cc}:{cc:any}){
+  if(!cc) return null;
+  const pct = Math.min(cc.coveragePercent ?? 0, 100);
+  const over100 = (cc.coveragePercent ?? 0) > 100;
+  const barColor = (cc.coveragePercent??0) >= 100 ? "#5cb85c" : (cc.coveragePercent??0) >= 50 ? "#d4841a" : "#e05555";
+  return (
+    <div style={{marginTop:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+        <span style={{fontSize:10,color:"var(--muted)",letterSpacing:"0.04em"}}>Capital coverage vs. typical requirement ({cc.requiredLabel})</span>
+        <span style={{fontSize:13,fontWeight:700,color:barColor}}>{cc.coveragePercent}%{over100?" +":""}</span>
+      </div>
+      <div className="score-bar" style={{height:8}}>
+        <div className="score-bar-fill" style={{width:`${pct}%`,background:`linear-gradient(90deg,${barColor}88,${barColor})`,borderRadius:99}}/>
+      </div>
+    </div>
+  );
+}
+
 // REPLACEMENT for buildHTML() in app/components/ResultsPage.tsx
 // Light background + dark text avoids Gmail's dark-mode color inversion,
 // which was making TAM/SAM/SOM values and section headings invisible.
@@ -53,6 +73,9 @@ function buildHTML(r:any,idea:string,capital:string):string{
   const vcText = r.verdict==="invest" ? "#2e7d32" : r.verdict==="pass" ? "#c62828" : "#b8860b";
   const vcBg = r.verdict==="invest" ? "#e8f5e9" : r.verdict==="pass" ? "#fdecea" : "#fff8e1";
   const vcBorder = r.verdict==="invest" ? "#a5d6a7" : r.verdict==="pass" ? "#f5b7b1" : "#ffe082";
+  const cc = r.capitalComparison;
+  const ccPct = cc ? Math.min(cc.coveragePercent ?? 0, 100) : 0;
+  const ccColor = cc ? ((cc.coveragePercent??0) >= 100 ? "#2e7d32" : (cc.coveragePercent??0) >= 50 ? "#b8860b" : "#c62828") : "#9a9688";
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${r.startupName}</title>
 <style>body{font-family:Inter,Arial,sans-serif;background:#f7f5f0;color:#1a1a1a;margin:0;padding:28px;font-size:13px;line-height:1.6}
 .c{background:#ffffff;border:1px solid #e5e0d5;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
@@ -72,6 +95,8 @@ li{font-size:11px;margin-bottom:4px;color:#5a5648}
 .vt{font-size:14px;font-weight:700;color:${vcText};margin-bottom:8px}
 p{font-size:12px;color:#6a6658;margin:0 0 8px}
 h1,h3{color:#1a1a1a}
+.cbar{height:8px;background:#efeae0;border-radius:99px;overflow:hidden;margin-top:6px}
+.cbarfill{height:100%;border-radius:99px}
 </style></head><body>
 <div class="c"><div class="cb">
 <h1 style="font-size:22px;font-weight:700;margin:0 0 5px;letter-spacing:-.02em">${r.startupName}</h1>
@@ -79,6 +104,7 @@ h1,h3{color:#1a1a1a}
 <p style="font-size:11px;color:#9a9688">Idea: ${idea} · Capital: ${capital} · Country: ${r.country||""} · Industry: ${r.industry||""}</p>
 <div style="font-size:32px;font-weight:700;margin:12px 0 0;color:${r.overallScore>=68?"#2e7d32":r.overallScore>=48?"#b8860b":"#c62828"}">${r.overallScore}<span style="font-size:14px;color:#9a9688">/100</span></div>
 ${r.capitalGap?`<p style="font-size:11px;color:#b8860b;margin-top:6px">💰 ${r.capitalGap}</p>`:""}
+${cc?`<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:10px;color:#9a9688;margin-bottom:3px"><span>Capital coverage vs. typical requirement (${cc.requiredLabel})</span><span style="font-weight:700;color:${ccColor}">${cc.coveragePercent}%${(cc.coveragePercent??0)>100?" +":""}</span></div><div class="cbar"><div class="cbarfill" style="width:${ccPct}%;background:${ccColor}"></div></div></div>`:""}
 </div></div>
 <div class="c"><div class="ch">📈 Market Research</div><div class="cb">
 <div class="g4">
@@ -182,6 +208,7 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
                     ))}
                   </div>
                   {r.capitalGap&&<div style={{display:"inline-flex",alignItems:"center",gap:7,padding:"7px 14px",background:"rgba(212,132,26,0.07)",border:"0.5px solid rgba(212,132,26,0.18)",borderRadius:10,fontSize:11,color:"#d4841a",marginTop:4}}>💰 {r.capitalGap}</div>}
+                  <CapitalCoverageBar cc={r.capitalComparison}/>
                 </div>
                 <ScoreGauge score={r.overallScore} size={120}/>
               </div>
@@ -285,6 +312,7 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
           {r.fundingBreakdown&&(
             <SC id="capital" icon="🥧" title="Capital allocation">
               <FundingPieChart data={r.fundingBreakdown} capital={capital}/>
+              <CapitalCoverageBar cc={r.capitalComparison}/>
             </SC>
           )}
 
