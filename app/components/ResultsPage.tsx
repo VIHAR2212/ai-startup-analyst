@@ -44,30 +44,41 @@ function SC({icon,title,tag,id,children}:{icon:string;title:string;tag?:string;i
   );
 }
 
+// REPLACEMENT for buildHTML() in app/components/ResultsPage.tsx
+// Light background + dark text avoids Gmail's dark-mode color inversion,
+// which was making TAM/SAM/SOM values and section headings invisible.
+
 function buildHTML(r:any,idea:string,capital:string):string{
   const vc=V[r.verdict as keyof typeof V]||V.watch;
+  const vcText = r.verdict==="invest" ? "#2e7d32" : r.verdict==="pass" ? "#c62828" : "#b8860b";
+  const vcBg = r.verdict==="invest" ? "#e8f5e9" : r.verdict==="pass" ? "#fdecea" : "#fff8e1";
+  const vcBorder = r.verdict==="invest" ? "#a5d6a7" : r.verdict==="pass" ? "#f5b7b1" : "#ffe082";
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${r.startupName}</title>
-<style>body{font-family:Inter,sans-serif;background:#000;color:#f5f5f0;margin:0;padding:28px;font-size:13px;line-height:1.6}
-.c{background:#0a0a08;border:1px solid rgba(255,255,255,0.07);border-radius:14px;margin-bottom:14px;overflow:hidden}
-.ch{padding:13px 20px;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:500;font-size:12px;background:#111110}
+<style>body{font-family:Inter,Arial,sans-serif;background:#f7f5f0;color:#1a1a1a;margin:0;padding:28px;font-size:13px;line-height:1.6}
+.c{background:#ffffff;border:1px solid #e5e0d5;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.ch{padding:13px 20px;border-bottom:1px solid #e5e0d5;font-weight:600;font-size:12px;background:#faf8f3;color:#1a1a1a}
 .cb{padding:18px 20px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
-.m{background:#111110;padding:12px;border-radius:10px}.ml{font-size:9px;color:#8a8778;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em}.mv{font-size:16px;font-weight:700;margin-bottom:3px}.mr{font-size:9px;color:#4a4840;font-style:italic;line-height:1.4}
-.swot{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cell{padding:12px;border-radius:10px}
-.S{background:rgba(92,184,92,0.07);border:1px solid rgba(92,184,92,0.18)}.W{background:rgba(224,85,85,0.07);border:1px solid rgba(224,85,85,0.18)}.O{background:rgba(80,138,255,0.07);border:1px solid rgba(80,138,255,0.18)}.T{background:rgba(212,132,26,0.07);border:1px solid rgba(212,132,26,0.18)}
+.m{background:#faf8f3;padding:12px;border-radius:10px;border:1px solid #efeae0}
+.ml{font-size:9px;color:#8a8778;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.mv{font-size:16px;font-weight:700;margin-bottom:3px;color:#1a1a1a}
+.mr{font-size:9px;color:#9a9688;font-style:italic;line-height:1.4}
+.swot{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cell{padding:12px;border-radius:10px;border:1px solid}
+.S{background:#f1f8f1;border-color:#cde6cd}.W{background:#fdf1f0;border-color:#f4cfcb}.O{background:#eef4ff;border-color:#cfe0fb}.T{background:#fdf6e8;border-color:#f5e0b3}
 .cl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
-.S .cl{color:#5cb85c}.W .cl{color:#e05555}.O .cl{color:#508aff}.T .cl{color:#d4841a}
-li{font-size:11px;margin-bottom:4px;color:#8a8778}
-.vb{padding:18px;border-radius:12px;background:${vc.bg};border:1px solid ${vc.border}}
-.vt{font-size:14px;font-weight:700;color:${vc.hdrColor};margin-bottom:8px}
-p{font-size:12px;color:#8a8778;margin:0 0 8px}
+.S .cl{color:#2e7d32}.W .cl{color:#c62828}.O .cl{color:#1565c0}.T .cl{color:#b8860b}
+li{font-size:11px;margin-bottom:4px;color:#5a5648}
+.vb{padding:18px;border-radius:12px;background:${vcBg};border:1px solid ${vcBorder}}
+.vt{font-size:14px;font-weight:700;color:${vcText};margin-bottom:8px}
+p{font-size:12px;color:#6a6658;margin:0 0 8px}
+h1,h3{color:#1a1a1a}
 </style></head><body>
 <div class="c"><div class="cb">
 <h1 style="font-size:22px;font-weight:700;margin:0 0 5px;letter-spacing:-.02em">${r.startupName}</h1>
-<p style="color:#8a8778;font-size:12px;margin-bottom:10px">${r.tagline||idea}</p>
-<p style="font-size:11px;color:#4a4840">Idea: ${idea} · Capital: ${capital} · Country: ${r.country||""} · Industry: ${r.industry||""}</p>
-<div style="font-size:32px;font-weight:700;margin:12px 0 0;color:${r.overallScore>=68?"#5cb85c":r.overallScore>=48?"#d4841a":"#e05555"}">${r.overallScore}<span style="font-size:14px;color:#4a4840">/100</span></div>
-${r.capitalGap?`<p style="font-size:11px;color:#d4841a;margin-top:6px">💰 ${r.capitalGap}</p>`:""}
+<p style="color:#6a6658;font-size:12px;margin-bottom:10px">${r.tagline||idea}</p>
+<p style="font-size:11px;color:#9a9688">Idea: ${idea} · Capital: ${capital} · Country: ${r.country||""} · Industry: ${r.industry||""}</p>
+<div style="font-size:32px;font-weight:700;margin:12px 0 0;color:${r.overallScore>=68?"#2e7d32":r.overallScore>=48?"#b8860b":"#c62828"}">${r.overallScore}<span style="font-size:14px;color:#9a9688">/100</span></div>
+${r.capitalGap?`<p style="font-size:11px;color:#b8860b;margin-top:6px">💰 ${r.capitalGap}</p>`:""}
 </div></div>
 <div class="c"><div class="ch">📈 Market Research</div><div class="cb">
 <div class="g4">
@@ -83,7 +94,7 @@ ${r.capitalGap?`<p style="font-size:11px;color:#d4841a;margin-top:6px">💰 ${r.
 <div class="cell T"><div class="cl">Threats</div><ul>${(r.swot?.threats||[]).map((s:string)=>`<li>${s}</li>`).join("")}</ul></div>
 </div></div></div>
 <div class="c"><div class="ch">🏆 Investment Verdict</div><div class="cb"><div class="vb"><div class="vt">${vc.title}</div><p>${r.investmentSummary||""}</p></div></div></div>
-<p style="text-align:center;color:#2a2820;font-size:10px;margin-top:24px;letter-spacing:.06em">AI STARTUP INTELLIGENCE ANALYST · ${new Date().toLocaleDateString()}</p>
+<p style="text-align:center;color:#bbb;font-size:10px;margin-top:24px;letter-spacing:.06em">AI STARTUP INTELLIGENCE ANALYST · ${new Date().toLocaleDateString()}</p>
 </body></html>`;
 }
 
