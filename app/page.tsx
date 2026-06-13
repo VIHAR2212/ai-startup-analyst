@@ -13,6 +13,7 @@ export default function Home() {
   const [stage,setStage]=useState<Stage>("input");
   const [idea,setIdea]=useState(""); const [capital,setCapital]=useState("");
   const [country,setCountry]=useState("India"); const [market,setMarket]=useState<"domestic"|"international">("domestic");
+  const [email,setEmail]=useState("");
   const [progress,setProg]=useState(0); const [stageIdx,setStageIdx]=useState(-1);
   const [report,setReport]=useState<any>(null);
   const [cIdea,setCIdea]=useState(""); const [cCap,setCCap]=useState(""); const [cCountry,setCCountry]=useState("India"); const [cMarket,setCMarket]=useState("domestic");
@@ -25,7 +26,7 @@ export default function Home() {
     const sp=[15,30,47,62,78,93];let idx=0;
     const iv=setInterval(()=>{ if(idx<6){setStageIdx(idx);setProg(sp[idx]);idx++;} },2200);
     try{
-      const res=await fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idea,capital:capital||"Not specified",country,market})});
+      const res=await fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idea,capital:capital||"Not specified",country,market,email})});
       clearInterval(iv);
       if(!res.ok){const e=await res.json();throw new Error(e.details||e.error||"API error");}
       const data=await res.json();
@@ -93,6 +94,7 @@ export default function Home() {
             capital={capital} setCapital={setCapital}
             country={country} setCountry={setCountry}
             market={market} setMarket={setMarket}
+            email={email} setEmail={setEmail}
             error={error} onAnalyze={analyze}
             history={history} onLoadHistory={loadHistory}
           />
