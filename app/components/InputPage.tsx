@@ -16,12 +16,14 @@ interface Props {
   capital:string; setCapital:(v:string)=>void;
   country:string; setCountry:(v:string)=>void;
   market:"domestic"|"international"; setMarket:(v:"domestic"|"international")=>void;
+  email:string; setEmail:(v:string)=>void;
   error:string; onAnalyze:()=>void;
   history:any[]; onLoadHistory:(i:number)=>void;
 }
 
-export default function InputPage({idea,setIdea,capital,setCapital,country,setCountry,market,setMarket,error,onAnalyze,history,onLoadHistory}:Props){
+export default function InputPage({idea,setIdea,capital,setCapital,country,setCountry,market,setMarket,email,setEmail,error,onAnalyze,history,onLoadHistory}:Props){
   const presets=PRESETS[country]||PRESETS.default;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   return (
     <motion.div
@@ -82,7 +84,20 @@ export default function InputPage({idea,setIdea,capital,setCapital,country,setCo
           ))}
         </div>
 
-        <button className="btn-primary" style={{width:"100%",marginTop:22,padding:"14px 0",fontSize:15}} onClick={onAnalyze} disabled={!idea.trim()}>
+        <div className="field-label" style={{marginTop:16}}>Email for your report</div>
+        <input
+          className="input-field"
+          type="email"
+          value={email}
+          onChange={e=>setEmail(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&e.ctrlKey&&onAnalyze()}
+          placeholder="you@example.com"
+        />
+        <div style={{fontSize:9,color:"var(--hint)",marginTop:6,lineHeight:1.5}}>
+          Your VC-grade report will be emailed here once analysis completes.
+        </div>
+
+        <button className="btn-primary" style={{width:"100%",marginTop:22,padding:"14px 0",fontSize:15}} onClick={onAnalyze} disabled={!idea.trim()||!emailValid}>
           🚀 Analyze Startup
         </button>
 
