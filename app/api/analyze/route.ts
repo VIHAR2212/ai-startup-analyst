@@ -346,7 +346,7 @@ function normalizeReport(report: Record<string,unknown>): Record<string,unknown>
 
 export async function POST(req: NextRequest) {
   try {
-    const {idea, capital="Not specified", country="India", market="domestic"} = await req.json();
+    const {idea, capital="Not specified", country="India", market="domestic", email=""} = await req.json();
     if (!idea?.trim()) return NextResponse.json({error:"Idea is required"},{status:400});
 
     // Legality check
@@ -438,7 +438,7 @@ export async function POST(req: NextRequest) {
       fetch(process.env.N8N_WEBHOOK_URL,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({idea,capital,country,market,report,timestamp:new Date().toISOString()}),
+        body:JSON.stringify({idea,capital,country,market,email,report,timestamp:new Date().toISOString()}),
       }).catch(()=>{});
     }
 
