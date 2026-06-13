@@ -42,6 +42,7 @@ async function checkLegality(idea: string, country: string): Promise<{legal:bool
 function computeScores(idea: string, capital: string, country: string): {
   market: number; team: number; product: number; traction: number; financials: number;
   overall: number; reasoning: Record<string,string>;
+  capitalCoveragePercent: number; requiredCapitalLabel: string; providedCapitalLakhs: number; requiredCapitalLakhs: number;
 } {
   const ideaLower = idea.toLowerCase();
 
@@ -126,6 +127,9 @@ function computeScores(idea: string, capital: string, country: string): {
 
   const overall = Math.round((market + team + product + traction + finScore) / 5);
 
+  const requiredCapitalLabel = requiredLakhs >= 100 ? `₹${(requiredLakhs/100).toFixed(1)}Cr` : `₹${requiredLakhs}L`;
+  const capitalCoveragePercent = Math.round(Math.min(ratio, 5) * 100); // cap display at 500%
+
   return {
     market: Math.round(market),
     team: Math.round(team),
@@ -139,7 +143,11 @@ function computeScores(idea: string, capital: string, country: string): {
       product: productReasoning,
       traction: tractionReasoning,
       financials: financialsReasoning,
-    }
+    },
+    capitalCoveragePercent,
+    requiredCapitalLabel,
+    providedCapitalLakhs: providedLakhs,
+    requiredCapitalLakhs: requiredLakhs,
   };
 }
 
@@ -405,6 +413,14 @@ function normalizeReport(report: Record<string,unknown>, idea: string, capital: 
   // Override capitalGap with our ratio-based reasoning (financials reasoning already
   // explains the comparison against actual industry requirement, not absolute judgment)
   report.capitalGap = computed.reasoning.financials;
+
+  // Structured capital comparison data for frontend display (e.g. progress bar / badge)
+  report.capitalComparison = {
+    providedLakhs: computed.providedCapitalLakhs,
+    requiredLakhs: computed.requiredCapitalLakhs,
+    requiredLabel: computed.requiredCapitalLabel,
+    coveragePercent: computed.capitalCoveragePercent, // e.g. 45 means capital covers 45% of requirement
+  };
 
   return report;
 }
