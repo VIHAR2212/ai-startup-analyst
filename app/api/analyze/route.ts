@@ -329,21 +329,35 @@ function normalizeScore(val: unknown): number {
   return Math.round(Math.min(Math.max(n,0),100));
 }
 
-function normalizeReport(report: Record<string,unknown>): Record<string,unknown> {
-  report.overallScore = normalizeScore(report.overallScore);
-  const scores = (report.scores as Record<string,unknown>)||{};
+function normalizeReport(report: Record<string,unknown>, idea: string, capital: string, country: string): Record<string,unknown> {
+  // Always compute scores algorithmically — LLM-provided scores (especially from
+  // smaller/faster models) tend to be templated/identical across different ideas.
+  // computeScores() deterministically varies based on idea keywords, capital, and country.
+  const computed = computeScores(idea, capital, country);
+
   report.scores = {
-    market:     normalizeScore(scores.market    ??55),
-    team:       normalizeScore(scores.team      ??50),
-    product:    normalizeScore(scores.product   ??50),
-    traction:   normalizeScore(scores.traction  ??40),
-    financials: normalizeScore(scores.financials??45),
+    market:     computed.market,
+    team:       computed.team,
+    product:    computed.product,
+    traction:   computed.traction,
+    financials: computed.financials,
   };
-  // Auto-fix verdict if inconsistent with score
+  report.overallScore = computed.overall;
+
+  // If the LLM provided per-score reasoning, keep it; otherwise use computed reasoning
+  const llmReasoning = (report.scoreReasoning as Record<string,unknown>) || {};
+  report.scoreReasoning = {
+    market:     llmReasoning.market     || computed.reasoning.market,
+    team:       llmReasoning.team       || computed.reasoning.team,
+    product:    llmReasoning.product    || computed.reasoning.product,
+    traction:   llmReasoning.traction   || computed.reasoning.traction,
+    financials: llmReasoning.financials || computed.reasoning.financials,
+  };
+
+  // Verdict always derived from the computed overall score for consistency
   const s = report.overallScore as number;
-  if (!report.verdict || report.verdict === "") {
-    report.verdict = s >= 68 ? "invest" : s >= 48 ? "watch" : "pass";
-  }
+  report.verdict = s >= 68 ? "invest" : s >= 48 ? "watch" : "pass";
+
   return report;
 }
 
@@ -366,7 +380,7 @@ export async function POST(req: NextRequest) {
     let usedModel = "Groq/Llama-3.3-70B";
     const raw = await comprehensiveAnalysisAgent(idea, capital, country, market, (model)=>{usedModel=model;});
     let report = parseJSON(raw);
-    report = normalizeReport(report);
+    report = normalizeReport(report, idea, capital, country);
 
     // ── Safety net: ensure revenueProjection always present, input-dependent,
     // and shape-correct. If the model omitted it or returned mismatched
