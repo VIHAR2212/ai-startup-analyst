@@ -155,7 +155,7 @@ function computeRevenue(idea: string, capital: string, country: string): {
     assumptions:`Based on ${idea} market growth in ${country}, conservative 10-15% MoM growth after month 6` };
 }
 
-async function comprehensiveAnalysisAgent(idea: string, capital: string, country: string, market: string): Promise<string> {
+async function comprehensiveAnalysisAgent(idea: string, capital: string, country: string, market: string, onModelUsed?: (model:string)=>void): Promise<string> {
   const currencyMap: Record<string,string> = {"India":"₹","USA":"$","UK":"£","Germany":"€","France":"€","Australia":"A$","Canada":"C$","Singapore":"S$","UAE":"AED","Japan":"¥","Brazil":"R$","South Africa":"R"};
   const currency = Object.entries(currencyMap).find(([k])=>country.toLowerCase().includes(k.toLowerCase()))?.[1]||"$";
 
@@ -281,13 +281,25 @@ Return ONLY valid JSON (no markdown, no explanation):
 }`;
 
   return callWithFallback([
-    // Primary: Claude Sonnet — best for comprehensive structured analysis
+    // Primary: Groq (free tier, generous limits) — try first to avoid Anthropic billing issues
+    async () => {
+      const groq = getGroq();
+      const res = await groq.chat.completions.create({
+        model:"llama-3.3-70b-versatile",
+        messages:[{role:"user",content:prompt}],
+        max_tokens:6000, temperature:0.5
+      });
+      onModelUsed?.("Groq/Llama-3.3-70B");
+      return res.choices[0]?.message?.content||"";
+    },
+    // Fallback: Claude Sonnet — best for comprehensive structured analysis (requires Anthropic credits)
     async () => {
       const a = getAnthropic();
       const res = await a.messages.create({
         model:"claude-sonnet-4-5", max_tokens:6000,
         messages:[{role:"user",content:prompt}]
       });
+      onModelUsed?.("Claude/Sonnet-4.5");
       return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
     },
     // Fallback: Claude Haiku
@@ -297,17 +309,8 @@ Return ONLY valid JSON (no markdown, no explanation):
         model:"claude-haiku-4-5-20251001", max_tokens:5000,
         messages:[{role:"user",content:prompt}]
       });
+      onModelUsed?.("Claude/Haiku-4.5");
       return res.content.map((b:any)=>b.type==="text"?b.text:"").join("");
-    },
-    // Fallback: Groq
-    async () => {
-      const groq = getGroq();
-      const res = await groq.chat.completions.create({
-        model:"llama-3.3-70b-versatile",
-        messages:[{role:"user",content:prompt}],
-        max_tokens:5000, temperature:0.3
-      });
-      return res.choices[0]?.message?.content||"";
     },
   ], "ComprehensiveAnalysis");
 }
@@ -360,7 +363,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Single comprehensive analysis — no truncation, full context preserved
-    const raw = await comprehensiveAnalysisAgent(idea, capital, country, market);
+    let usedModel = "Groq/Llama-3.3-70B";
+    const raw = await comprehensiveAnalysisAgent(idea, capital, country, market, (model)=>{usedModel=model;});
     let report = parseJSON(raw);
     report = normalizeReport(report);
 
@@ -431,8 +435,8 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // Add agentsUsed for UI display
-    report.agentsUsed = ["Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet","Claude/Sonnet"];
+    // Add agentsUsed for UI display (reflects actual model that succeeded)
+    report.agentsUsed = [usedModel,usedModel,usedModel,usedModel,usedModel,usedModel];
 
     if (process.env.N8N_WEBHOOK_URL) {
       fetch(process.env.N8N_WEBHOOK_URL,{
