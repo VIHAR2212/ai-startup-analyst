@@ -36,7 +36,7 @@ export default function RevenueChart({ data, verdict }: Props) {
     const chartH = H - pad.top - pad.bottom;
 
     const maxVal = Math.max(...data.revenue, 1);
-    const color = verdict === "invest" ? "#4ade80" : verdict === "watch" ? "#f59e0b" : "#ef4444";
+    const color = verdict === "invest" ? "#4ade80" : verdict === "watch" ? "#f59e0b" : "#9ca3af";
 
     const points = data.revenue.map((v, i) => ({
       x: pad.left + (chartW / (data.revenue.length - 1)) * i,
@@ -62,13 +62,15 @@ export default function RevenueChart({ data, verdict }: Props) {
         ctx!.textAlign = "right";
         ctx!.fillText(val >= 100 ? Math.round(val)+"" : val.toFixed(1), pad.left - 6, y + 4);
       }
-      // X labels
+      // X labels — convert months-from-now to calendar years
       ctx!.fillStyle = "rgba(255,255,255,0.35)";
       ctx!.font = "10px Inter, sans-serif";
       ctx!.textAlign = "center";
+      const currentYear = new Date().getFullYear();
       data.months.forEach((m, i) => {
         const x = pad.left + (chartW / (data.months.length - 1)) * i;
-        ctx!.fillText(`M${m}`, x, H - pad.bottom + 16);
+        const yearOffset = Math.floor((m - 1) / 12);
+        ctx!.fillText(`${currentYear + yearOffset}`, x, H - pad.bottom + 16);
       });
       // Unit label
       ctx!.fillStyle = "rgba(255,255,255,0.3)";
