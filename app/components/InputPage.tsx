@@ -35,7 +35,7 @@ export default function InputPage({idea,setIdea,capital,setCapital,country,setCo
       style={{minHeight:"calc(100vh - 54px)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",position:"relative",zIndex:1}}
     >
       {/* Hero */}
-      <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:0.1}} style={{textAlign:"center",marginBottom:24,maxWidth:640}}>
+      <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:0.1}} style={{textAlign:"center",marginBottom:20,maxWidth:720}}>
         <div style={{display:"inline-flex",alignItems:"center",gap:8,padding:"5px 14px",background:"rgba(212,132,26,0.08)",border:"0.5px solid rgba(212,132,26,0.2)",borderRadius:99,fontSize:11,color:"var(--amber-3)",marginBottom:16,letterSpacing:"0.04em"}}>
           ✦ Multi-agent AI · 6 agents · 3 models
         </div>
@@ -49,12 +49,12 @@ export default function InputPage({idea,setIdea,capital,setCapital,country,setCo
       </motion.div>
 
       {/* Form card */}
-      <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.2}} className="glass" style={{padding:28,width:"100%",maxWidth:520,borderRadius:20}}>
+      <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.2}} className="glass" style={{padding:"22px 28px",width:"100%",maxWidth:720,borderRadius:20}}>
 
         <div className="field-label">Your startup idea</div>
-        <textarea className="input-field" value={idea} onChange={e=>setIdea(e.target.value)} onKeyDown={e=>e.key==="Enter"&&e.ctrlKey&&onAnalyze()} placeholder="Describe your startup idea in detail…" rows={4} style={{minHeight:96}}/>
+        <textarea className="input-field" value={idea} onChange={e=>setIdea(e.target.value)} onKeyDown={e=>e.key==="Enter"&&e.ctrlKey&&onAnalyze()} placeholder="Describe your startup idea in detail…" rows={3} style={{minHeight:72}}/>
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:12}}>
           <div>
             <div className="field-label">Country</div>
             <div style={{position:"relative"}}>
@@ -76,7 +76,7 @@ export default function InputPage({idea,setIdea,capital,setCapital,country,setCo
           </div>
         </div>
 
-        <div className="field-label" style={{marginTop:16}}>Available capital</div>
+        <div className="field-label" style={{marginTop:12}}>Available capital</div>
         <input className="input-field" value={capital} onChange={e=>setCapital(e.target.value)} placeholder={presets[1]||"e.g. $10,000"}/>
         <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8}}>
           {presets.map(p=>(
@@ -84,7 +84,7 @@ export default function InputPage({idea,setIdea,capital,setCapital,country,setCo
           ))}
         </div>
 
-        <div className="field-label" style={{marginTop:16}}>Email for your report</div>
+        <div className="field-label" style={{marginTop:12}}>Email for your report</div>
         <input
           className="input-field"
           type="email"
@@ -97,7 +97,7 @@ export default function InputPage({idea,setIdea,capital,setCapital,country,setCo
           Your VC-grade report will be emailed here once analysis completes.
         </div>
 
-        <button className="btn-primary" style={{width:"100%",marginTop:22,padding:"14px 0",fontSize:15}} onClick={onAnalyze} disabled={!idea.trim()||!emailValid}>
+        <button className="btn-primary" style={{width:"100%",marginTop:16,padding:"13px 0",fontSize:15}} onClick={onAnalyze} disabled={!idea.trim()||!emailValid}>
           🚀 Analyze Startup
         </button>
 
