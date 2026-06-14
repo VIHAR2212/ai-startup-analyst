@@ -241,13 +241,13 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
             {(r.marketResearch?.targetDemographic||r.marketResearch?.culturalInsight)&&(
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
                 {r.marketResearch?.targetDemographic&&(
-                  <div style={{padding:"12px 14px",background:"rgba(92,184,92,0.05)",borderRadius:10,border:"0.5px solid rgba(92,184,92,0.14)"}}>
+                  <div style={{padding:"12px 14px",background:"rgba(92,184,92,0.06)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderRadius:10,border:"0.5px solid rgba(92,184,92,0.2)"}}>
                     <div style={{fontSize:9,color:"#5cb85c",fontWeight:600,letterSpacing:"0.08em",marginBottom:6}}>🎯 TARGET DEMOGRAPHIC</div>
                     <p style={{fontSize:12,margin:0,color:"var(--muted)",lineHeight:1.5}}>{r.marketResearch.targetDemographic}</p>
                   </div>
                 )}
                 {r.marketResearch?.culturalInsight&&(
-                  <div style={{padding:"12px 14px",background:"rgba(212,132,26,0.05)",borderRadius:10,border:"0.5px solid rgba(212,132,26,0.14)"}}>
+                  <div style={{padding:"12px 14px",background:"rgba(212,132,26,0.06)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderRadius:10,border:"0.5px solid rgba(212,132,26,0.2)"}}>
                     <div style={{fontSize:9,color:"var(--amber-3)",fontWeight:600,letterSpacing:"0.08em",marginBottom:6}}>🧠 CULTURAL INSIGHT</div>
                     <p style={{fontSize:12,margin:0,color:"var(--muted)",lineHeight:1.5}}>{r.marketResearch.culturalInsight}</p>
                   </div>
@@ -264,7 +264,7 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
               ))}
             </div>
             {r.marketResearch?.demandSignals&&(
-              <div style={{marginTop:14,padding:"12px 14px",background:"var(--black-3)",borderRadius:10,border:"0.5px solid var(--glass-border)"}}>
+              <div style={{marginTop:14,padding:"12px 14px",background:"rgba(255,255,255,0.03)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderRadius:10,border:"0.5px solid var(--glass-border)"}}>
                 <div style={{fontSize:9,color:"var(--muted)",letterSpacing:"0.08em",fontWeight:600,marginBottom:5}}>📡 DEMAND SIGNALS</div>
                 <p style={{fontSize:12,margin:0,color:"var(--muted)",lineHeight:1.5}}>{r.marketResearch.demandSignals}</p>
               </div>
@@ -350,7 +350,7 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
           <SC id="swot" icon="🛡️" title="SWOT analysis">
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {([["S","Strengths","#5cb85c",r.swot?.strengths],["W","Weaknesses","#e05555",r.swot?.weaknesses],["O","Opportunities","#508aff",r.swot?.opportunities],["T","Threats","#d4841a",r.swot?.threats]] as [string,string,string,string[]][]).map(([key,label,color,items])=>(
-                <div key={key} style={{padding:"14px 16px",borderRadius:12,background:color+"08",border:`0.5px solid ${color}18`}}>
+                <div key={key} style={{padding:"14px 16px",borderRadius:12,background:color+"08",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:`0.5px solid ${color}22`,boxShadow:`0 4px 24px rgba(0,0,0,0.15)`}}>
                   <div style={{fontSize:9,fontWeight:700,color,letterSpacing:"0.1em",marginBottom:10}}>{label.toUpperCase()}</div>
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
                     {items?.map((item,i)=>(
@@ -368,7 +368,7 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
           <SC id="risks" icon="⚠️" title="Risk analysis & mitigation">
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {r.risks?.map((risk:any,i:number)=>(
-                <div key={i} style={{padding:"14px 16px",background:"var(--black-3)",borderRadius:12,border:"0.5px solid var(--glass-border)"}}>
+                <div key={i} style={{padding:"14px 16px",background:"rgba(255,255,255,0.03)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderRadius:12,border:"0.5px solid var(--glass-border)"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
                     <span style={{fontSize:15}}>{risk.severity==="high"?"🔴":risk.severity==="medium"?"🟡":"🟢"}</span>
                     <div style={{flex:1}}>
@@ -378,7 +378,7 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
                   </div>
                   <p style={{fontSize:12,color:"var(--muted)",margin:"0 0 10px",lineHeight:1.55}}>{risk.description}</p>
                   {risk.mitigation&&(
-                    <div style={{padding:"8px 12px",background:"rgba(92,184,92,0.05)",borderRadius:8,border:"0.5px solid rgba(92,184,92,0.14)",fontSize:11}}>
+                    <div style={{padding:"8px 12px",background:"rgba(92,184,92,0.06)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderRadius:8,border:"0.5px solid rgba(92,184,92,0.2)",fontSize:11}}>
                       <span style={{color:"#5cb85c",fontWeight:600}}>✓ Mitigation: </span>
                       <span style={{color:"var(--muted)"}}>{risk.mitigation}</span>
                     </div>
@@ -402,7 +402,7 @@ export default function ResultsPage({report:r,idea,capital,country,market,onNewA
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {[["🌱","GROWTH STRATEGY",r.growthStrategy],["🏰","COMPETITIVE MOAT",r.moat]].map(([icon,label,text])=>(
-                <div key={label as string} className="metric-card">
+                <div key={label as string} className="metric-card" style={{textAlign:"left",alignItems:"flex-start"}}>
                   <div style={{fontSize:9,color:"var(--muted)",letterSpacing:"0.08em",fontWeight:600,marginBottom:8}}>{icon} {label}</div>
                   <p style={{fontSize:12,margin:0,lineHeight:1.65,color:"var(--muted)"}}>{text as string}</p>
                 </div>
